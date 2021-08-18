@@ -32,8 +32,7 @@ IMG_SIZE = [16, 16]
 
 # Game variable ------------------------------------------------------------------------------------------------------------------ #
 
-player_action = 'herochar_idle'
-player_flip = False
+player = e.entity('herochar', [0, 0])
 
 moving_right = False
 moving_left = False
@@ -43,7 +42,6 @@ air_timer = 0
 
 true_scroll = [0, 0]
 
-player_rect = pygame.Rect(0, 0, 16, 16)
 background_objects = [[0.25,[120,10,70,400]],[0.25,[280,30,40,400]],[0.5,[30,40,40,400]],[0.5,[130,90,100,400]],[0.5,[300,80,120,400]]]
 
 # MAIN GAME -------------------------------------------------------------------------------------------------------------------------------#
@@ -68,15 +66,23 @@ for obj in os.listdir('data/object'):
         OBJECT.append([e.object(obj, [26 * num_obj, 9*16 - 40]), 'idle'])
         num_obj += 1
 
+ENTITY = []
+num_en = 0
+for en in os.listdir('data/animation/entity'):
+    for status in os.listdir('data/animation/entity/' + en):
+        status = status[len(en) + 1:]
+        ENTITY.append([e.entity(en, [26 * num_en, 9*16 - 60]), status])
+        num_en += 1
+
+
 #print(len(OBJECT))
-frame = 0
 while True: 
     #print(player_y_momentum)
     
     display.fill([102, 255, 255])
 
-    true_scroll[0] += (player_rect.x - true_scroll[0] - display.get_width()/2) * ( 10 * (e.img_FPS / e.FPS) ) * 1 / 20
-    true_scroll[1] += (player_rect.y - true_scroll[1] - display.get_height()/2) * ( 10 * (e.img_FPS / e.FPS) ) * 1 / 20
+    true_scroll[0] += (player.rect.x - true_scroll[0] - display.get_width()/2) * ( 10 * (e.img_FPS / e.FPS) ) * 1 / 20
+    true_scroll[1] += (player.rect.y - true_scroll[1] - display.get_height()/2) * ( 10 * (e.img_FPS / e.FPS) ) * 1 / 20
     scroll = true_scroll.copy()
     scroll[0] = int(scroll[0])
     scroll[1] = int(scroll[1])
@@ -92,11 +98,10 @@ while True:
 
     # TILE RENDERING ------------------------------------------------------------------------------------------------------------------ #
     
-    tile_rects = e.chunk_render(display, WINDOWN_SIZE, SCALE, CHUNK_SIZE, IMG_SIZE, scroll)
+    e.chunk_render(display, WINDOWN_SIZE, SCALE, CHUNK_SIZE, IMG_SIZE, scroll)
 
     # Move momentum ------------------------------------------------------------------------------------------------------------------ #
-    gravity = 0.4
-    
+    gravity = 0.6
     if gravity >= 0.5:
         ground = gravity * 2
     else:
@@ -104,9 +109,9 @@ while True:
     
     player_movement = [0, 0]
     if moving_right:
-        player_movement[0] += 2
+        player_movement[0] += 3
     if moving_left:
-        player_movement[0] -= 2
+        player_movement[0] -= 3
     player_movement[1] += player_y_momentum
     player_y_momentum += gravity # GRAVITY :))))
     if player_y_momentum > 8:
@@ -114,44 +119,49 @@ while True:
     
     # Action Create ------------------------------------------------------------------------------------------------------------------ #
     if player_movement[0] > 0:
-        player_action, frame = animation.change_action(player_action, frame, 'herochar_run')
-        player_flip =False
+        player.flip = False
+        player.change_action('run')
     if player_movement[0] < 0:
-        player_action, frame = animation.change_action(player_action, frame, 'herochar_run')
-        player_flip = True
+        player.flip = True
+        player.change_action('run')
     if player_movement[0] == 0:
-        player_action, frame = animation.change_action(player_action, frame, 'herochar_idle')
+        player.change_action('idle')
     if player_movement[1] < 0:
-        player_action, player_frame = animation.change_action(player_action, frame, 'herochar_jump_up')
+        player.change_action('jump_up')
     if player_movement[1] > ground:
-        player_action, frame = animation.change_action(player_action, frame, 'herochar_jump_down')
+        player.change_action('jump_down')
 
     # Move Player ------------------------------------------------------------------------------------------------------------------ #
-    #print(player_y_momentum)
-    player_rect, collitions = e.move(player_rect, player_movement, tile_rects)
 
-    if collitions['bottom']:
+    player.move(player_movement)
+
+    if player.collision['bottom']:
         player_y_momentum = 0
         air_timer = 0
     else:
         air_timer += 1
-    if collitions['top']:
+    if player.collision['top']:
         player_y_momentum = 0
     
     # Render entity ------------------------------------------------------------------------------------------------------------------ #
+    display_render = pygame.Rect(scroll[0], scroll[1], WINDOWN_SIZE[0] / SCALE, WINDOWN_SIZE[1] / SCALE)
     
-    if frame > len(e.animation_database[player_action]) - 1:
-        frame = 0
+    text = ['Adventure time', 3]
+    text_rect = e.text_draw(display, text[0], text[1], [0, 9*16 - 90], scroll,False)
+    if display_render.colliderect(text_rect):
+        e.text_draw(display, text[0], text[1], [0, 9*16 - 90], scroll)
     
-    display_render = pygame.Rect(scroll[0], scroll[1], WINDOWN_SIZE[0]/SCALE, WINDOWN_SIZE[1]/SCALE)
+    #pygame.draw.rect(display, [255,0,0], player.rect, 2)
     for obj in OBJECT:
         if display_render.colliderect(obj[0].get_rect(obj[1])):
             obj[0].load_animation(display, obj[1], scroll)
+        #pygame.draw.rect(display, [255,0,0], obj[0].get_rect(obj[1], scroll))
 
-    player_image = animation.load_animation(display, player_action, frame, [player_rect.x - scroll[0], player_rect.y - scroll[1]], player_flip)
+    for entity in ENTITY:
+        if display_render.colliderect(entity[0].rect):
+            entity[0].load_animation(display, entity[1],scroll)
 
-    player_rect = pygame.Rect(player_rect.x, player_rect.y, player_image.get_width(), player_image.get_height())
-    
+    player.load_animation(display, player.status,scroll)
             # print(obj[0].ID)
     # print('-----------------------------------------')
 
@@ -170,24 +180,21 @@ while True:
                 moving_left = True
             if event.key == K_UP:
                 if air_timer < 8:
-                    player_y_momentum = - gravity * 15
+                    player_y_momentum = - gravity * 12
         if event.type == KEYUP:
             if event.key == K_RIGHT:
                 moving_right = False
             if event.key == K_LEFT:
                 moving_left = False
     
+    #e.text_draw(display, text, size, [0, 9*16 - 50], True, True)#[WINDOWN_SIZE[0] / 2 - text_size[0] - 2, 70], True, True)
+
     surf = pygame.transform.scale(display, WINDOWN_SIZE)
     screen.blit(surf, [0, 0])
     
     # Render text ------------------------------------------------------------------------------------------------------------------ #
-    text = 'Adventure time'
-    size = 2
-    text_size = e.text_draw(screen, text, size, [10, 0], False)
-    e.text_draw(screen, text, size,[WINDOWN_SIZE[0] / 2 - text_size[0] - 2, 70])
     fr = clock.get_fps()
-    e.text_draw(screen, str(int(fr)), 1, [0, 0])
+    e.text_draw(screen, str(int(fr)), 2, [0, 0])
     # Update game ------------------------------------------------------------------------------------------------------------------ #
     pygame.display.update()
     clock.tick(e.FPS)
-    frame += 1

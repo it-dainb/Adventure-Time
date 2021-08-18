@@ -1,11 +1,8 @@
 import pygame, os, random
 from pygame.locals import *
 
-# test conflic
-# Setting enviroment ------------------------------------------------------------------------------------------------------------------ #
-
-
-FPS = 50
+#  Setting enviroment ------------------------------------------------------------------------------------------------------------------ #
+FPS = 30
 
 img_FPS = 12
 FPS = FPS // img_FPS * img_FPS
@@ -59,6 +56,8 @@ def generate_chunk(x, y, CHUNK_SIZE): # Chunk = tile*tile
 
 game_map = {} # { '1;1' : [[[x, y], tile_type] * 64], .... }
 def chunk_render(surface, WINDOWN_SIZE, SCALE, CHUNK_SIZE, IMG_SIZE, scroll):
+    global tile_rects
+    
     # take loc of chunk
     tile_rects = []
     for y in range(int(round(WINDOWN_SIZE[1] / (SCALE * CHUNK_SIZE * IMG_SIZE[1]))) + 1):
@@ -75,7 +74,8 @@ def chunk_render(surface, WINDOWN_SIZE, SCALE, CHUNK_SIZE, IMG_SIZE, scroll):
                     surface.blit(tile_index[tile[1]], (tile[0][0] - scroll[0], tile[0][1] - scroll[1]))
                 if tile[1] not in [1, 2, 3, 23, 24, 50, 55, 56, 59, 60]: # [47,50]
                     tile_rects.append(pygame.Rect(tile[0][0], tile[0][1], 16, 16))        
-    return tile_rects
+
+
 
 # PHYSIC ------------------------------------------------------------------------------------------------------------------ #
 def collide_test(rect, tiles):
@@ -85,12 +85,12 @@ def collide_test(rect, tiles):
             hit_list.append(tile)
     return hit_list
     
-def move(rect, movement, tiles):
+def move(rect, movement):
     collision_type = {'top': False, 'bottom': False, 'right': False, 'left': False}
     
     # Update location x ---------------------------------------------------------------------------------------------------- #
     rect.x += movement[0]
-    hit_list = collide_test(rect, tiles)
+    hit_list = collide_test(rect, tile_rects)
     for tile in hit_list:
         if movement[0] > 0:
             collision_type['right'] = True
@@ -101,7 +101,7 @@ def move(rect, movement, tiles):
             
     # Update location y ------------------------------------------------------------------------------------------------------------------ #
     rect.y += movement[1]
-    hit_list = collide_test(rect, tiles)
+    hit_list = collide_test(rect, tile_rects)
     for tile in hit_list:
         if movement[1] >= 0:
             collision_type['bottom'] = True
@@ -114,7 +114,7 @@ def move(rect, movement, tiles):
     
 # Text 2 image ------------------------------------------------------------------------------------------------------------------ #
 
-def text_draw(surface, text, size, pos, draw = True,bug = False):
+def text_draw(surface, text, size, pos, scroll = [0,0],draw = True,bug = False):
     
     char_img = pygame.image.load('data/font/h.png')
     img_size = [char_img.get_width(), char_img.get_height()]
@@ -158,10 +158,11 @@ def text_draw(surface, text, size, pos, draw = True,bug = False):
                 char_img.set_colorkey([0, 0, 0])
                 text_sur.blit(char_img, [(img_size[0] + spacing) * num, 0])
         num += 1
-    display = [int(text_size[0] * size), int(text_size[1] * size)]
+    display = [int(text_size[0] / 2 * size), int(text_size[1] / 2 * size)]
     n_surf = pygame.transform.scale(text_sur, display)
-    surface.blit(n_surf, pos)
-    return text_size
+    text_rect = pygame.Rect([pos[0], pos[1], n_surf.get_width(), n_surf.get_height()])
+    surface.blit(n_surf, [pos[0] - scroll[0], pos[1] - scroll[1]])
+    return text_rect
 
 # Animation load ------------------------------------------------------------------------------------------------------------------ #
 animation_path = 'data/animation'
@@ -213,6 +214,7 @@ class animation(object):
                             for frame_status in entity_status:
                                 for _ in range(int(FPS//img_FPS)):
                                     animation_database[more_frame].append(animation_path + '/' + entity + '/' + frame + '/' + more_frame + '/' + frame_status)
+                            
                     
     def load_animation(self, surface, ID, frame, pos, flip = False, draw = True):
         ID = str(ID)
@@ -250,6 +252,7 @@ class object(object):
         self.x = pos[0]
         self.y = pos[1]
         self.pos = pos
+        #self.rect = self.get_rect(self.status)
         pass
     
     def create_database(self):
@@ -291,17 +294,68 @@ class object(object):
                 ID = self.ID
             if self.frame > len(animation_database[ID]) - 1:
                 self.frame = 0
-            obj_anim = animation()
             obj_img = pygame.image.load(animation_database[str(ID)][self.frame])
             self.rect = pygame.Rect(self.x, self.y, obj_img.get_width(), obj_img.get_height())
         else:
             obj_img = pygame.image.load(obj_path + '/' + self.ID + '.png')
             self.rect = pygame.Rect(self.x, self.y, obj_img.get_width(), obj_img.get_height())
         return self.rect
+
+class entity(object):
+    def __init__(self, ID, pos):
+        self.x = pos[0]
+        self.y = pos[1]
+        self.ID = ID
+        self.pos = pos
+        self.status = 'idle'
+        self.frame = 0
+        self.collision = {'top': False, 'bottom': False, 'right': False, 'left': False}
+        self.flip = False
+        self.img = pygame.image.load(animation_database[self.ID + '_' + self.status][0])
+        self.rect = pygame.Rect(self.x, self.y, self.img.get_width(), self.img.get_height())
+    
+    def change_action(self, status):
+        if self.status != status:
+            self.status = status
+            self.frame = 0
+    
+    def load_animation(self, surface, status, scroll, draw = True):
+        ID = self.ID + '_' + status
+        if self.frame > len(animation_database[ID]) - 1:
+            self.frame = 0
+        entity_anim = animation()
+        entity_anim.load_animation(surface, ID, self.frame, [self.rect.x - scroll[0], self.rect.y - scroll[1]], self.flip)
+        self.frame += 1
+
+    def move(self, movement):
+        self.collision = {'top': False, 'bottom': False, 'right': False, 'left': False}
+        
+        # Update location x ---------------------------------------------------------------------------------------------------- #
+        self.rect.x += movement[0]
+        hit_list = collide_test(self.rect, tile_rects)
+        for tile in hit_list:
+            if movement[0] > 0:
+                self.collision['right'] = True
+                self.rect.right = tile.left
+            elif movement[0] < 0:
+                self.collision['left'] = True
+                self.rect.left = tile.right
+                
+        # Update location y ------------------------------------------------------------------------------------------------------------------ #
+        self.rect.y += movement[1]
+        hit_list = collide_test(self.rect, tile_rects)
+        for tile in hit_list:
+            if movement[1] >= 0:
+                self.collision['bottom'] = True
+                self.rect.bottom = tile.top
+            elif movement[1] < 0:
+                self.collision['top'] = True
+                self.rect.top = tile.bottom
+            
+
 # obj = object('coin', [0, 0], [0, 0])
 # obj.create_database()
 # print(obj_database)
 anim = animation()
 anim.create_database()
 # print(len(animation_database['herochar_idle']))
-print(FPS)
