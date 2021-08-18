@@ -176,7 +176,7 @@ class animation(object):
     
     def create_database(self):
         for entity in animation_dir:
-            entity_animation = os.listdir(animation_path + '/' + str(entity))
+            entity_animation = os.listdir(animation_path + '/' + entity)
             if entity_animation[0][- 4:] == '.png':
                 animation_database[entity] = []
                 #while len(animation_database[entity]) < len(entity_animation)* int(FPS//img_FPS):
@@ -191,19 +191,26 @@ class animation(object):
                 #print(entity, len(animation_database[entity]))
             else:
                 for frame in entity_animation:
-                    animation_database[frame] = []
-                    entity_frame = os.listdir(animation_path + '/' + str(entity) + '/' + str(frame)) 
-                    #while len(animation_database[frame]) < len(entity_frame)* int(FPS//img_FPS):
-                    for more_frame in entity_frame:
-                        for _ in range(int(FPS//img_FPS)):
-                            animation_database[frame].append(animation_path + '/' + entity + '/' + frame + '/' + more_frame)
-                                #print(more_frame)
-                                # if len(animation_database[frame]) < len(entity_frame)* int(FPS/img_FPS):
-                                    # animation_database[frame].append(animation_path + '/' + entity + '/' + frame + '/' + more_frame)
-                                # else:
-                                    # break
-                        #print(more_frame, len(entity_frame))
-                    #print(frame, len(animation_database[frame]))
+                    entity_frame = os.listdir(animation_path + '/' + entity + '/' + frame) 
+                    if entity_frame[0][-4:] == '.png':
+                        animation_database[frame] = []
+                        for more_frame in entity_frame:
+                            for _ in range(int(FPS//img_FPS)):
+                                animation_database[frame].append(animation_path + '/' + entity + '/' + frame + '/' + more_frame)
+                                    #print(more_frame)
+                                    # if len(animation_database[frame]) < len(entity_frame)* int(FPS/img_FPS):
+                                        # animation_database[frame].append(animation_path + '/' + entity + '/' + frame + '/' + more_frame)
+                                    # else:
+                                        # break
+                            #print(more_frame, len(entity_frame))
+                            #print(frame, len(animation_database[frame]))
+                    else:
+                        for more_frame in entity_frame:
+                            entity_status = os.listdir(animation_path + '/' + entity + '/' + frame + '/' + more_frame)
+                            animation_database[more_frame] = []
+                            for frame_status in entity_status:
+                                for _ in range(int(FPS//img_FPS)):
+                                    animation_database[more_frame].append(animation_path + '/' + entity + '/' + frame + '/' + more_frame + '/' + frame_status)
                     
     def load_animation(self, surface, ID, frame, pos, flip = False, draw = True):
         ID = str(ID)
