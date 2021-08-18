@@ -1,7 +1,7 @@
 import pygame, os, random
 from pygame.locals import *
 
-# test push
+# test conflic
 #  Setting enviroment ------------------------------------------------------------------------------------------------------------------ #
 
 FPS = 50
