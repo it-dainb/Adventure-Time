@@ -17,7 +17,6 @@ def load_tiles():
         tile_image = pygame.image.load(tile_path + '/' + tile)
         tile_image.set_colorkey([0, 0, 0])
         tile_index[ID] = tile_image
-        #print(ID, tile)
         ID += 1
     return tile_index
 
@@ -326,6 +325,7 @@ class entity(object):
         entity_anim = animation()
         entity_anim.load_animation(surface, ID, self.frame, [self.rect.x - scroll[0], self.rect.y - scroll[1]], self.flip)
         self.frame += 1
+
 
     def move(self, movement):
         self.collision = {'top': False, 'bottom': False, 'right': False, 'left': False}
