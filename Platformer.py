@@ -21,7 +21,6 @@ animation = e.animation()
 animation.create_database()
 
 # LOAD TILES ------------------------------------------------------------------------------------------------------------------ #
-
 tile_index = e.load_tiles()
 bug = False
 
@@ -31,7 +30,6 @@ CHUNK_SIZE = 8
 IMG_SIZE = [16, 16]
 
 # Game variable ------------------------------------------------------------------------------------------------------------------ #
-
 player = e.entity('herochar', [0, 0])
 
 moving_right = False
@@ -46,7 +44,7 @@ background_objects = [[0.25,[120,10,70,400]],[0.25,[280,30,40,400]],[0.5,[30,40,
 
 jump_count = 0
 
-# MAIN GAME -------------------------------------------------------------------------------------------------------------------------------#
+# List of entity, object, efffect ------------------------------------------------------------------------------------------------------------------ #
 OBJECT = [] # [obj, status]
 num_obj = 0
 check = 0
@@ -77,11 +75,13 @@ for en in os.listdir('data/animation/entity'):
         ENTITY.append([e.entity(en, [26 * num_en, 9*16 - 60]), status])
         num_en += 1
 
-effect_check = 0
-#print(len(OBJECT))
+EFFECT = [] # [object, duration]
+
+# MAIN GAME -------------------------------------------------------------------------------------------------------------------------------#
 while True: 
     #print(player_y_momentum)
 
+    #display.fill([102, 255, 255])
     display.fill([0, 0, 0])
 
     true_scroll[0] += (player.rect.x - true_scroll[0] - display.get_width()/2) * ( 10 * (e.img_FPS / e.FPS) ) * 1 / 20
@@ -100,7 +100,6 @@ while True:
             # pygame.draw.rect(display, (9, 91, 85), obj_rect)
 
     # TILE RENDERING ------------------------------------------------------------------------------------------------------------------ #
-    
     e.chunk_render(display, WINDOWN_SIZE, SCALE, CHUNK_SIZE, IMG_SIZE, scroll)
 
     # Move momentum ------------------------------------------------------------------------------------------------------------------ #
@@ -123,8 +122,10 @@ while True:
         player_y_momentum = 10
     
     
-    # Action Create ------------------------------------------------------------------------------------------------------------------ #
-    if player_movement[0] >= 0:
+    # Action center ------------------------------------------------------------------------------------------------------------------ #
+    prev_status = player.status 
+    
+    if player_movement[0] > 0:
         player.flip = False
     else:
         player.flip = True
@@ -137,7 +138,7 @@ while True:
         player.change_action('idle')
     if player_movement[1] < 0 and jump_count < 2:
         player.change_action('jump_up')
-    if player_movement[1] > ground and jump_count == 28:
+    if player_movement[1] > ground and ( jump_count == 28 or jump_count == 1):
         player.change_action('jump_down')
     if 28 > jump_count >= 2:
         player.change_action('jump_double')
@@ -147,22 +148,22 @@ while True:
         if player.collision['bottom']:
             jump_count = 0
     
-    # Move Player ------------------------------------------------------------------------------------------------------------------ #
-    if player.status == 'jump_up':
-        if effect_check == 0:
-            effect_check = 1
-            player_effect = e.object('herochar_before_jump_dust', [player.rect.x, player.rect.y])
-        effect_rect = player_effect.get_rect('herochar_before_jump_dust')
-        pygame.draw.rect(display, [255,0,255], effect_rect)
-        
-        if air_timer < 8 or 2 <= jump_count < 11:
-            player_effect.load_animation(display, 'herochar_before_jump_dust', scroll)
-        else:
-            effect_check = 0
-    else:
-        effect_check = 0
-        pass
+    now_status = player.status
+
+    # Create effect ------------------------------------------------------------------------------------------------------------------ #
+    if prev_status != 'jump_up' and now_status == 'jump_up' or ( prev_status == 'jump_up' and now_status == 'jump_double'):
+        EFFECT.append([e.object('herochar_before_jump_dust', [player.rect.x, player.rect.y]), 8])
+    if prev_status == 'jump_down' and now_status != 'jump_down':# or 8 > effect_after >= 1:
+        EFFECT.append([e.object('herochar_after_jump_dust', [player.rect.x, player.rect.y]), 8])
     
+    for effect in EFFECT:
+        if effect[1] != 0:
+            effect[0].load_animation(display, effect[0].status, scroll)
+            effect[1] -= 1
+        else:
+            EFFECT.pop(EFFECT.index(effect))
+
+    # Move Player ------------------------------------------------------------------------------------------------------------------ #
     player.move(player_movement)
 
     if player.collision['bottom']:
@@ -181,21 +182,15 @@ while True:
     if display_render.colliderect(text_rect):
         e.text_draw(display, text[0], text[1], [0, 9*16 - 90], scroll)
     
-    pygame.draw.rect(display, [255,0,0], player.rect, 2)
     for obj in OBJECT:
         if display_render.colliderect(obj[0].get_rect(obj[1])):
             obj[0].load_animation(display, obj[1], scroll)
-        #pygame.draw.rect(display, [255,0,0], obj[0].get_rect(obj[1], scroll))
 
     for entity in ENTITY:
         if display_render.colliderect(entity[0].rect):
             entity[0].load_animation(display, entity[1], scroll)
 
     player.load_animation(display, player.status,scroll)
-    pygame.draw.rect(display, [255,0,0], player.rect, 1)
-    
-            # print(obj[0].ID)
-    # print('-----------------------------------------')
     
     # Update key ------------------------------------------------------------------------------------------------------------------ #
     for event in pygame.event.get():
@@ -204,7 +199,6 @@ while True:
             sys.exit()
         if event.type == VIDEORESIZE:
             WINDOWN_SIZE = [event.w, event.h]
-            #display = pygame.Surface([WINDOWN_SIZE[0]/SCALE, WINDOWN_SIZE[1]/SCALE])
         if event.type == KEYDOWN:
             if event.key == K_RIGHT:
                 moving_right = True
@@ -212,17 +206,13 @@ while True:
                 moving_left = True
             if event.key == K_UP:
                 if jump_count < 2 :
-                    print('jump:', jump_count)
                     player_y_momentum = - jump_power
                     jump_count += 1
-                    print(jump_count)
         if event.type == KEYUP:
             if event.key == K_RIGHT:
                 moving_right = False
             if event.key == K_LEFT:
                 moving_left = False
-    
-    #e.text_draw(display, text, size, [0, 9*16 - 50], True, True)#[WINDOWN_SIZE[0] / 2 - text_size[0] - 2, 70], True, True)
 
     surf = pygame.transform.scale(display, WINDOWN_SIZE)
     screen.blit(surf, [0, 0])
@@ -230,6 +220,7 @@ while True:
     # Render text ------------------------------------------------------------------------------------------------------------------ #
     fr = clock.get_fps()
     e.text_draw(screen, str(int(fr)), 2, [0, 0])
+
     # Update game ------------------------------------------------------------------------------------------------------------------ #
     pygame.display.update()
     clock.tick(e.FPS)
