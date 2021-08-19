@@ -1,5 +1,8 @@
-import pygame, sys, os, time
-import DaiEngine as e
+import pygame
+import sys
+import os
+import time
+import data.DaiEngine as e
 from pygame.locals import *
 
 # Setting enviromental ------------------------------------------------------------------------------------------------------------------ #
