@@ -8,7 +8,6 @@ img_FPS = 12
 FPS = FPS // img_FPS * img_FPS
 
 # Create map ------------------------------------------------------------------------------------------------------------------ #
-
 tile_index = {}
 def load_tiles():
     tile_path = 'data/tiles'
@@ -31,7 +30,6 @@ def load_map(path):
     return game_map
 
 # Creat Chunk ------------------------------------------------------------------------------------------------------------------ #
-
 def generate_chunk(x, y, CHUNK_SIZE): # Chunk = tile*tile
     chunk_data = []
     for y_pos in range(CHUNK_SIZE):
@@ -52,7 +50,6 @@ def generate_chunk(x, y, CHUNK_SIZE): # Chunk = tile*tile
     pass
 
 # Render tiles in chunk ------------------------------------------------------------------------------------------------------------------ #
-
 game_map = {} # { '1;1' : [[[x, y], tile_type] * 64], .... }
 def chunk_render(surface, WINDOWN_SIZE, SCALE, CHUNK_SIZE, IMG_SIZE, scroll):
     global tile_rects
@@ -73,8 +70,6 @@ def chunk_render(surface, WINDOWN_SIZE, SCALE, CHUNK_SIZE, IMG_SIZE, scroll):
                     surface.blit(tile_index[tile[1]], (tile[0][0] - scroll[0], tile[0][1] - scroll[1]))
                 if tile[1] not in [1, 2, 3, 23, 24, 50, 55, 56, 59, 60]: # [47,50]
                     tile_rects.append(pygame.Rect(tile[0][0], tile[0][1], 16, 16))        
-
-
 
 # PHYSIC ------------------------------------------------------------------------------------------------------------------ #
 def collide_test(rect, tiles):
@@ -112,7 +107,6 @@ def move(rect, movement):
     return rect, collision_type
     
 # Text 2 image ------------------------------------------------------------------------------------------------------------------ #
-
 def text_draw(surface, text, size, pos, scroll = [0,0],draw = True,bug = False):
     
     char_img = pygame.image.load('data/font/h.png')
@@ -237,7 +231,6 @@ class animation(object):
         return pygame.Rect(pos[0], pos[1], frame_img.get_width(), frame_img.get_height())
 
 # Object stuff ------------------------------------------------------------------------------------------------------------------ #
-
 obj_path = 'data/object'
 global obj_database
 obj_database = [] # {'ID': obj_rect}
@@ -300,6 +293,7 @@ class object(object):
             self.rect = pygame.Rect(self.x, self.y, obj_img.get_width(), obj_img.get_height())
         return self.rect
 
+# Entity stuff ------------------------------------------------------------------------------------------------------------------ #
 class entity(object):
     def __init__(self, ID, pos):
         self.x = pos[0]
