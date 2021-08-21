@@ -1,11 +1,15 @@
 import pygame
 import sys
+import json
 import os
 from pygame.locals import *
 
 # Function MapTool ------------------------------------------------------------------------------------------------------------------ #
 database = {} # ID: [img_loaded, img_name, type] type can be obj, tile, entity
-game_map = {}
+game_map = {'tile': {},
+            'object': [],
+            'entity': []
+                        }
 
 def generate_chunk(x, y): # Chunk = tile*tile | x, y is pos chunk
     chunk_data = []
@@ -53,7 +57,7 @@ tile_size = [int(WINDOWN_SIZE[0] / 5), WINDOWN_SIZE[1]]
 map_size = [16 * 100, 16 * 100]
 
 tile = pygame.Surface([16 * 8 - 6, 16 * 20])
-map = pygame.Surface(map_size)
+#map = pygame.Surface(map_size)
 
 # Setting game ------------------------------------------------------------------------------------------------------------------ #
 
@@ -71,17 +75,47 @@ SCALE = 1
 tile_rects = []
 
 spacing = 5
-select = False
 click = False
+select = False
 remove = False
+export = False
+import_ = False
 num_tile = 0
 
-test = []
+test = {} # 'LOC': [ID_select, block_rect]
+remove_block =[]
+
+ID_im = 0
+
+momen = 5
 # Main game ------------------------------------------------------------------------------------------------------------------ #
 while True:
+    # Import map ------------------------------------------------------------------------------------------------------------------ #
+    if import_:
+        name = input('File Name: ')
+        print('LOADED !!!!')
+        f = open('data/map/' + name + '.json', 'r')
+        game_map = json.load(f)
+    
+    for a in game_map:
+        if a == 'tile':
+            for b in game_map[a]:
+                for data in game_map[a][b]:
+                    #print(data)
+                    LOC = str(data[0][0]) + ';' + str(data[0][1])
+                    ID_im = data[1]
+                    block_rect = pygame.Rect(data[0][0], data[0][1], database[ID_im][0].get_width(), database[ID_im][0].get_height())
+                    test[LOC] =[ID_im, block_rect] 
+        else:
+            for data in game_map[a]:
+                LOC = str(data[0][0]) + ';' + str(data[0][1])
+                ID_im = data[1]
+                block_rect = pygame.Rect(data[0][0], data[0][1], database[ID_im][0].get_width(), database[ID_im][0].get_height())
+                test[LOC] =[ID_im, block_rect] 
+
     # Reset screen ------------------------------------------------------------------------------------------------------------------ #
     tile.fill([0, 0, 0])
-    map.fill([0, 0, 0])
+    #map.fill([0, 0, 0])
     screen.fill([0,0,0])
     
     # Tile Menu ------------------------------------------------------------------------------------------------------------------ #
@@ -108,7 +142,7 @@ while True:
             ID += 1
         num += 1
     
-    tile_area = pygame.Rect([0, 0, 16 * 8 - 8, tile_size[1]])
+    tile_area = pygame.Rect([0, 0, IMG_SIZE[0] * 8 - 8, tile_size[1]])
     separator = pygame.Rect([0, 0, tile_size[0], tile_size[1]])
     pygame.draw.rect(tile, [255, 0, 0],tile_area, 2)
     
@@ -121,17 +155,19 @@ while True:
     # Select Item ------------------------------------------------------------------------------------------------------------------ #
     for rect in tile_rects:
         
+        tile_rect = [rect[0].x - 2, rect[0].y - 2, rect[0].width + 3, rect[0].height + 3]
+        
         if rect[0].collidepoint([m_x, m_y]):
             if not click :
-                pygame.draw.rect(tile, [255, 0, 0], rect[0], 1) # Edge slecting item
+                pygame.draw.rect(tile, [255, 0, 0], tile_rect, 2) # Edge slecting item
             else:
-                pygame.draw.rect(tile, [255, 0, 0], rect[0], 1) # Edge slecting item
+                pygame.draw.rect(tile, [255, 0, 0], tile_rect, 2) # Edge slecting item
                 ID_select = num_tile + 1
                 mouse_img = database[rect[1]][0]
                 select = True
         if select:
             if ID_select == num_tile + 1:
-                pygame.draw.rect(tile, [255, 0, 0], rect[0], 1) # Edge slected item
+                pygame.draw.rect(tile, [255, 0, 0], tile_rect, 2) # Edge slected item
         num_tile += 1
     
     # Map Area UI ------------------------------------------------------------------------------------------------------------------ #
@@ -178,7 +214,7 @@ while True:
                 if target_chunk not in game_map['air']:
                     game_map['air'][target_chunk] = generate_chunk(target_x, target_y)
                 for data in game_map['air'][target_chunk]:
-                    data_rect = pygame.Rect([data[0] * 16 - camera[0], data[1] * 16 - camera[1], 16, 16])#IMG_SIZE[0], IMG_SIZE[1]])
+                    data_rect = pygame.Rect([data[0] * IMG_SIZE[0] - camera[0], data[1] * IMG_SIZE[0] - camera[1], IMG_SIZE[0], IMG_SIZE[0]])
                     blocks.append(data_rect)
     
     if remove:
@@ -188,32 +224,83 @@ while True:
     for block in blocks:
         if in_map: 
             if block.collidepoint(m_x / SCALE, m_y / SCALE):
-                    #display.blit(database[ID_select][0], [block.x, block.y])
-                pygame.draw.rect(display, color, block, 1)
-                # camera[0] = int(m_x - camera[0] - WINDOWN_SIZE[0] / 2)
-                # camera[1] = int(m_y - camera[1] - WINDOWN_SIZE[1] * 4 / 5 / 2)
+                block_width = database[ID_select][0].get_width()
+                block_height = database[ID_select][0].get_height()
+                if block_height > IMG_SIZE[1]:
+                    offset = IMG_SIZE[0] - (block_height - (block_height//IMG_SIZE[0]*IMG_SIZE[0]))
+                else:
+                    offset = IMG_SIZE[0] - block_height
+                block_rect = pygame.Rect([(m_x / SCALE + camera[0] ) // IMG_SIZE[0] * IMG_SIZE[0], (m_y / SCALE + camera[1]) // IMG_SIZE[0] * IMG_SIZE[0] + offset, block_width, block_height])
+                loc = str(int((m_x / SCALE + camera[0] ) // IMG_SIZE[0] * IMG_SIZE[0])) + ';' + str(int((m_y / SCALE + camera[1]) // IMG_SIZE[0] * IMG_SIZE[0] + offset))
                 if click:
-                    test.append([[(m_x / SCALE + camera[0] ) // 16 * 16, (m_y / SCALE + camera[1]) // 16 * 16], ID_select])
-                if remove:
-                    for a in test:
-                        if [(m_x / SCALE + camera[0] ) // 16 * 16, (m_y / SCALE + camera[1]) // 16 * 16] in a:
-                            test.remove(a)
-
-
+                    test[loc] = [ID_select, block_rect]
     
+    # Draw ------------------------------------------------------------------------------------------------------------------ #
     for tet in test:
-        display.blit(database[tet[1]][0], [tet[0][0] - camera[0], tet[0][1] - camera[1]])
-        pass
-        
+        loc = list(map(int, tet.split(';')))
+        display.blit(database[test[tet][0]][0], [loc[0] - camera[0], loc[1] - camera[1]])
+        n_rect = pygame.Rect([test[tet][1].x + 1 - camera[0], test[tet][1].y + 1 - camera[1], test[tet][1].width - 2, test[tet][1].height - 2])
+        #pygame.draw.rect(display, [255, 255, 255], n_rect, 1)
+        if remove:
+            if select_rect.colliderect(n_rect):
+                remove_block.append(tet)
+                pygame.draw.rect(display, [255, 255, 255], n_rect)
     
+    # Remove block ------------------------------------------------------------------------------------------------------------------ #
+    if remove_block != []:
+        for block in remove_block:
+            test.pop(block)
+    
+        
+    for block in blocks:
+        if in_map: 
+            if block.collidepoint(m_x / SCALE, m_y / SCALE):
+                block_height = database[ID_select][0].get_height()
+                if block_height > IMG_SIZE[1]:
+                    offset = IMG_SIZE[0] - (block_height - (block_height//IMG_SIZE[0]*IMG_SIZE[0]))
+                else:
+                    offset = IMG_SIZE[0] - block_height
+                block_width = database[ID_select][0].get_width()
+                select_rect = pygame.Rect([block.x - 1, block.y - 1 + offset, block_width + 2, block_height +  2])
+                pygame.draw.rect(display, color, select_rect, 1)
+
     # Reset status ------------------------------------------------------------------------------------------------------------------ #
     tile_rects = []
+    remove_block = []
     ID = 1
     row, col = 0, 0
     num_tile = 0
     click = False
     remove = False
+    game_map = {'tile': {},
+                'object': [],
+                'entity': []
+                            }
     
+    # Data map ------------------------------------------------------------------------------------------------------------------ #
+    for k,v in test.items():
+        type_ = database[v[0]][2]
+        loc = list(map(int, k.split(';')))
+        pos_chunk = str(int(loc[0] // (CHUNK_SIZE * IMG_SIZE[0]))) + ';' + str(int(loc[1] // (CHUNK_SIZE * IMG_SIZE[0])))
+        data = [[loc[0], loc[1]], v[0]]
+        if type_ == 'tile':
+            if pos_chunk not in game_map[type_]:
+                game_map[type_][pos_chunk] = [data]
+            else:
+                game_map[type_][pos_chunk].append(data)
+        else:
+            game_map[type_].append(data)
+    
+    if export:
+        name = input('Name map: ')
+        with open('data/map/' + name + '.json', 'w') as file:
+            json.dump(game_map, file)
+        print('SAVED !!!!')
+        pygame.quit()
+        sys.exit()
+        
+    import_ = False
+    export = False
     # Update keys ------------------------------------------------------------------------------------------------------------------ #    
     prev_scroll = scroll
     for event in pygame.event.get():
@@ -235,16 +322,20 @@ while True:
                     SCALE = 1
             if event.key == K_e:
                 SCALE += 1
-        
+            if event.key == K_F1:
+                export = True
+            if event.key == K_F2:
+                import_ = True
+                
     keys = pygame.key.get_pressed()
     if keys[K_w]:
-        camera[1] -= 16
+        camera[1] -= momen
     if keys[K_a]:
-        camera[0] -= 16
+        camera[0] -= momen
     if keys[K_s]:
-        camera[1] += 16
+        camera[1] += momen
     if keys[K_d]:
-        camera[0] += 16
+        camera[0] += momen
     
     if pygame.mouse.get_pressed() == (1, 0, 0):
         click = True
@@ -266,5 +357,5 @@ while True:
     
     # Update Game ------------------------------------------------------------------------------------------------------------------ #
     pygame.display.update()
-   # clock.tick(30)
+    #clock.tick(30)
 
