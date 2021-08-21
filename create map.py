@@ -94,9 +94,8 @@ while True:
     if import_:
         name = input('File Name: ')
         print('LOADED !!!!')
-        f = open('data/map/' + name + '.json', 'r')
+        f = open('data/map/map.json', 'r')
         game_map = json.load(f)
-    
     for a in game_map:
         if a == 'tile':
             for b in game_map[a]:
@@ -292,8 +291,7 @@ while True:
             game_map[type_].append(data)
     
     if export:
-        name = input('Name map: ')
-        with open('data/map/' + name + '.json', 'w') as file:
+        with open('data/map/map.json', 'w') as file:
             json.dump(game_map, file)
         print('SAVED !!!!')
         pygame.quit()

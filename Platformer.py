@@ -22,6 +22,7 @@ display = pygame.Surface([640 / 2, 360 /2 ])#[WINDOWN_SIZE[0]/SCALE, WINDOWN_SIZ
 # Setting data base ------------------------------------------------------------------------------------------------------------------ #
 animation = e.animation()
 animation.create_database()
+database = e.create_database() # ID: [img_loaded, img_name, type] type can be obj, tile, entity
 
 # LOAD TILES ------------------------------------------------------------------------------------------------------------------ #
 tile_index = e.load_tiles()
@@ -29,11 +30,11 @@ bug = False
 
 # GAME MAP ------------------------------------------------------------------------------------------------------------------ #
 game_map = {}
+game_map = e.load_map('map')
 CHUNK_SIZE = 8
 IMG_SIZE = [16, 16]
 
 # Game variable ------------------------------------------------------------------------------------------------------------------ #
-player = e.entity('herochar', [0, 0])
 
 moving_right = False
 moving_left = False
@@ -48,35 +49,57 @@ background_objects = [[0.25,[120,10,70,400]],[0.25,[280,30,40,400]],[0.5,[30,40,
 jump_count = 0
 
 # List of entity, object, efffect ------------------------------------------------------------------------------------------------------------------ #
-OBJECT = [] # [obj, status]
-num_obj = 0
-check = 0
-
-for obj in os.listdir('data/object'):
-    obj = obj[:(len(obj) - 4)]
-    if obj in os.listdir('data/animation'):
-        for status in os.listdir('data/animation/' + obj):
-            if status[-4:] != '.png':
-                status = status[len(obj) + 1:]
-                OBJECT.append([e.object(obj, [26 * num_obj, 9*16 - 40]), status])
-                num_obj += 1
-            else:
-                if check == 0:
-                    OBJECT.append([e.object(obj, [26 * num_obj, 9*16 - 40]), 'idle'])
-                    num_obj += 1
-                    check = 1
-        check = 0
-    else:
-        OBJECT.append([e.object(obj, [26 * num_obj, 9*16 - 40]), 'idle'])
-        num_obj += 1
-
 ENTITY = []
-num_en = 0
-for en in os.listdir('data/animation/entity'):
-    for status in os.listdir('data/animation/entity/' + en):
-        status = status[len(en) + 1:]
-        ENTITY.append([e.entity(en, [26 * num_en, 9*16 - 60]), status])
-        num_en += 1
+OBJECT = []
+
+for type_ in game_map:
+    if type_ == 'entity':
+        for data in game_map[type_]:
+            if data[1] == 91:
+                player = e.entity(data[2], data[0])
+            else:
+                ENTITY.append([e.entity(data[2], data[0]), 'idle'])
+    elif type_ == 'object':
+        for data in game_map[type_]:
+            if data[1] == 83:
+                OBJECT.append([e.object(data[2], data[0]), 'closed'])
+            elif data[1] == 65:
+                OBJECT.append([e.object(data[2], data[0]), 'on_ground'])
+            else:
+                OBJECT.append([e.object(data[2], data[0]), 'idle'])
+
+
+
+
+# OBJECT = [] # [obj, status]
+# num_obj = 0
+# check = 0
+
+# for obj in os.listdir('data/object'):
+    # obj = obj[:(len(obj) - 4)]
+    # if obj in os.listdir('data/animation'):
+        # for status in os.listdir('data/animation/' + obj):
+            # if status[-4:] != '.png':
+                # status = status[len(obj) + 1:]
+                # OBJECT.append([e.object(obj, [26 * num_obj, 9*16 - 40]), status])
+                # num_obj += 1
+            # else:
+                # if check == 0:
+                    # OBJECT.append([e.object(obj, [26 * num_obj, 9*16 - 40]), 'idle'])
+                    # num_obj += 1
+                    # check = 1
+        # check = 0
+    # else:
+        # OBJECT.append([e.object(obj, [26 * num_obj, 9*16 - 40]), 'idle'])
+        # num_obj += 1
+
+# ENTITY = []
+# num_en = 0
+# for en in os.listdir('data/animation/entity'):
+    # for status in os.listdir('data/animation/entity/' + en):
+        # status = status[len(en) + 1:]
+        # ENTITY.append([e.entity(en, [26 * num_en, 9*16 - 60]), status])
+        # num_en += 1
 
 EFFECT = [] # [object, duration]
 
@@ -103,7 +126,8 @@ while True:
             # pygame.draw.rect(display, (9, 91, 85), obj_rect)
 
     # TILE RENDERING ------------------------------------------------------------------------------------------------------------------ #
-    e.chunk_render(display, WINDOWN_SIZE, SCALE, CHUNK_SIZE, IMG_SIZE, scroll)
+    #e.chunk_render(display, WINDOWN_SIZE, SCALE, CHUNK_SIZE, IMG_SIZE, scroll)
+    e.map_render(display, scroll)
 
     # Move momentum ------------------------------------------------------------------------------------------------------------------ #
     gravity = 0.6
@@ -181,9 +205,10 @@ while True:
     display_render = pygame.Rect(scroll[0], scroll[1], WINDOWN_SIZE[0] / SCALE, WINDOWN_SIZE[1] / SCALE)
     
     text = ['Adventure time', 3]
-    text_rect = e.text_draw(display, text[0], text[1], [0, 9*16 - 90], scroll,False)
+    text_pos = [0, - 150]
+    text_rect = e.text_draw(display, text[0], text[1], text_pos, scroll,False)
     if display_render.colliderect(text_rect):
-        e.text_draw(display, text[0], text[1], [0, 9*16 - 90], scroll)
+        e.text_draw(display, text[0], text[1], text_pos, scroll)
     
     for obj in OBJECT:
         if display_render.colliderect(obj[0].get_rect(obj[1])):

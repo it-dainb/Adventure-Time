@@ -1,4 +1,7 @@
-import pygame, os, random
+import pygame
+import os
+import random
+import json
 from pygame.locals import *
 
 #  Setting enviroment ------------------------------------------------------------------------------------------------------------------ #
@@ -6,6 +9,64 @@ FPS = 30
 
 img_FPS = 12
 FPS = FPS // img_FPS * img_FPS
+
+# Create database ------------------------------------------------------------------------------------------------------------------ #
+database = {} # ID: [img_loaded, img_name, type] type can be obj, tile, entity
+def create_database():
+    global database
+    
+    tile_path = 'data/tiles'
+    object_path = 'data/object'
+    entity_path = 'data/entity'
+    ID = 1
+    for tiles in os.listdir(tile_path):
+        img = pygame.image.load(tile_path + '/' + tiles)
+        img.set_colorkey([0, 0, 0])
+        database[ID] = [img, tiles[:-4], 'tile']
+        ID += 1
+    for obj in os.listdir(object_path):
+        img = pygame.image.load(object_path + '/' + obj)
+        img.set_colorkey([0, 0, 0])
+        database[ID] = [img, obj[:-4], 'object']
+        ID += 1
+    for entity in os.listdir(entity_path):
+        img = pygame.image.load(entity_path + '/' + entity)
+        img.set_colorkey([0, 0, 0])
+        database[ID] = [img, entity[:-4], 'entity']
+        ID += 1
+    return database
+
+# Load Map ------------------------------------------------------------------------------------------------------------------ #
+game_map = {'tile': {}, # {'0;0': [[[pos_x, pos_y], ID] * n]}
+            'object': [], # [[[pos_x, pos_y], ID] * n]
+            'entity': [] # [[[pos_x, pos_y], ID] * n]
+                        }
+def load_map(name):
+    global game_map
+    
+    f = open('data/map/' + name + '.json', 'r')
+    game_map = json.load(f)
+    return game_map
+
+def map_render(surface, scroll):
+    global tile_rects
+    
+    tile_rects = [] # Must clear else lag :<
+    for a in game_map:
+        if a == 'tile':
+            for b in game_map[a]:
+                for data in game_map[a][b]:
+                    LOC_CHUNK = str(data[0][0]) + ';' + str(data[0][1])
+                    pos_x = data[0][0]
+                    pos_y = data[0][1]
+                    ID_im = data[1]
+                    img = database[ID_im][0]
+                    data_width = database[ID_im][0].get_width()
+                    data_height = database[ID_im][0].get_height()
+                    block_rect = pygame.Rect(pos_x, pos_y, data_width, data_height)
+                    surface.blit(img, [pos_x - scroll[0], pos_y - scroll[1]])
+                    if ID_im not in [1,2,3,23,37,50,55,56,57,58]:
+                        tile_rects.append(block_rect)
 
 # Create map ------------------------------------------------------------------------------------------------------------------ #
 tile_index = {}
@@ -18,16 +79,6 @@ def load_tiles():
         tile_index[ID] = tile_image
         ID += 1
     return tile_index
-
-def load_map(path):
-    f = open(path + '.txt','r')
-    data = f.read()
-    f.close()
-    data = data.split('\n')
-    game_map = []
-    for row in data:
-        game_map.append(list(row))
-    return game_map
 
 # Creat Chunk ------------------------------------------------------------------------------------------------------------------ #
 def generate_chunk(x, y, CHUNK_SIZE): # Chunk = tile*tile
@@ -50,7 +101,7 @@ def generate_chunk(x, y, CHUNK_SIZE): # Chunk = tile*tile
     pass
 
 # Render tiles in chunk ------------------------------------------------------------------------------------------------------------------ #
-game_map = {} # { '1;1' : [[[x, y], tile_type] * 64], .... }
+#game_map = {} # { '1;1' : [[[x, y], tile_type] * 64], .... }
 def chunk_render(surface, WINDOWN_SIZE, SCALE, CHUNK_SIZE, IMG_SIZE, scroll):
     global tile_rects
     
@@ -209,9 +260,9 @@ class animation(object):
                                     animation_database[more_frame].append(animation_path + '/' + entity + '/' + frame + '/' + more_frame + '/' + frame_status)
                             
                     
-    def load_animation(self, surface, ID, frame, pos, flip = False, draw = True):
-        ID = str(ID)
-        frame_path = animation_database[ID][frame]
+    def load_animation(self, surface, ID_anim, frame, pos, flip = False, draw = True):
+        ID_anim = str(ID_anim)
+        frame_path = animation_database[ID_anim][frame]
         frame_img = pygame.image.load(frame_path).convert()
         frame_img.set_colorkey([0, 0, 0])
         if draw:
@@ -224,9 +275,9 @@ class animation(object):
             frame = 0
         return entity_status, frame
     
-    def get_rect(self, ID, pos):
-        ID = str(ID)
-        frame_path = animation_database[ID][0]
+    def get_rect(self, ID_anim, pos):
+        ID_anim = str(ID_anim)
+        frame_path = animation_database[ID_anim][0]
         frame_img = pygame.image.load(frame_path).convert()
         return pygame.Rect(pos[0], pos[1], frame_img.get_width(), frame_img.get_height())
 
