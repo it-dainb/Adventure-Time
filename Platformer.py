@@ -68,41 +68,11 @@ for type_ in game_map:
             else:
                 OBJECT.append([e.object(data[2], data[0]), 'idle'])
 
-
-
-
-# OBJECT = [] # [obj, status]
-# num_obj = 0
-# check = 0
-
-# for obj in os.listdir('data/object'):
-    # obj = obj[:(len(obj) - 4)]
-    # if obj in os.listdir('data/animation'):
-        # for status in os.listdir('data/animation/' + obj):
-            # if status[-4:] != '.png':
-                # status = status[len(obj) + 1:]
-                # OBJECT.append([e.object(obj, [26 * num_obj, 9*16 - 40]), status])
-                # num_obj += 1
-            # else:
-                # if check == 0:
-                    # OBJECT.append([e.object(obj, [26 * num_obj, 9*16 - 40]), 'idle'])
-                    # num_obj += 1
-                    # check = 1
-        # check = 0
-    # else:
-        # OBJECT.append([e.object(obj, [26 * num_obj, 9*16 - 40]), 'idle'])
-        # num_obj += 1
-
-# ENTITY = []
-# num_en = 0
-# for en in os.listdir('data/animation/entity'):
-    # for status in os.listdir('data/animation/entity/' + en):
-        # status = status[len(en) + 1:]
-        # ENTITY.append([e.entity(en, [26 * num_en, 9*16 - 60]), status])
-        # num_en += 1
-
 EFFECT = [] # [object, duration]
 
+gravity = 0.6
+vel = 3
+jump_power = 6
 # MAIN GAME -------------------------------------------------------------------------------------------------------------------------------#
 while True: 
     #print(player_y_momentum)
@@ -117,22 +87,19 @@ while True:
     scroll[1] = int(scroll[1])
 
     # Backround ------------------------------------------------------------------------------------------------------------------ #
-    # pygame.draw.rect(display,(7,80,75),pygame.Rect(0,120,300,80))
-    # for background_object in background_objects:
-        # obj_rect = pygame.Rect(background_object[1][0] - scroll[0]*background_object[0],background_object[1][1]-scroll[1]*background_object[0],background_object[1][2],background_object[1][3])
-        # if background_object[0] == 0.5:
-            # pygame.draw.rect(display, (14, 222, 150), obj_rect)
-        # else:
-            # pygame.draw.rect(display, (9, 91, 85), obj_rect)
+    pygame.draw.rect(display,(7,80,75),pygame.Rect(0,120,300,80))
+    for background_object in background_objects:
+        obj_rect = pygame.Rect(background_object[1][0] - scroll[0]*background_object[0],background_object[1][1]-scroll[1]*background_object[0],background_object[1][2],background_object[1][3])
+        if background_object[0] == 0.5:
+            pygame.draw.rect(display, (14, 222, 150), obj_rect)
+        else:
+            pygame.draw.rect(display, (9, 91, 85), obj_rect)
 
     # TILE RENDERING ------------------------------------------------------------------------------------------------------------------ #
     #e.chunk_render(display, WINDOWN_SIZE, SCALE, CHUNK_SIZE, IMG_SIZE, scroll)
     e.map_render(display, scroll)
 
     # Move momentum ------------------------------------------------------------------------------------------------------------------ #
-    gravity = 0.6
-    vel = 3
-    jump_power = 8
     if gravity >= 0.5:
         ground = gravity * 3
     else:
@@ -156,20 +123,25 @@ while True:
         player.flip = False
     else:
         player.flip = True
+    #print(player_movement[1], ground)
     
-    if player_movement[0] > 0 and player_movement[1] == 0:
-        player.change_action('run')
-    if player_movement[0] < 0 and player_movement[1] == 0:
+    if player_movement[0] != 0 and player_movement[1] == 0:
         player.change_action('run')
     if player_movement[0] == 0 and player_movement[1] == 0:
         player.change_action('idle')
     if player_movement[1] < 0 and jump_count < 2:
         player.change_action('jump_up')
-    if player_movement[1] > ground and ( jump_count == 28 or jump_count == 1):
+    if player_movement[1] > ground and ( jump_count == 18 or jump_count == 1) or player_movement[1] > ground or player.collision['top']:
         player.change_action('jump_down')
-    if 28 > jump_count >= 2:
-        player.change_action('jump_double')
-        jump_count += 1
+    print(player.status)
+    if 18 > jump_count >= 2 and not player.collision['bottom']:
+        if player.collision['top']:
+            jump_count = 0
+        else:
+            player.change_action('jump_double')
+            jump_count += 1
+    print(player.status)
+    print('-------------------')
     
     if player_movement[1] == 0:
         if player.collision['bottom']:
@@ -180,7 +152,7 @@ while True:
     # Create effect ------------------------------------------------------------------------------------------------------------------ #
     if prev_status != 'jump_up' and now_status == 'jump_up' or ( prev_status == 'jump_up' and now_status == 'jump_double'):
         EFFECT.append([e.object('herochar_before_jump_dust', [player.rect.x, player.rect.y]), 8])
-    if prev_status == 'jump_down' and now_status != 'jump_down':# or 8 > effect_after >= 1:
+    if prev_status == 'jump_down' and now_status != 'jump_down':
         EFFECT.append([e.object('herochar_after_jump_dust', [player.rect.x, player.rect.y]), 8])
     
     for effect in EFFECT:

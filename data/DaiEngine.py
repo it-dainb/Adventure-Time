@@ -226,16 +226,9 @@ class animation(object):
             entity_animation = os.listdir(animation_path + '/' + entity)
             if entity_animation[0][- 4:] == '.png':
                 animation_database[entity] = []
-                #while len(animation_database[entity]) < len(entity_animation)* int(FPS//img_FPS):
                 for frame in entity_animation:
                     for _ in range(int(FPS//img_FPS)):
                         animation_database[entity].append(animation_path + '/' + entity + '/' + frame)
-                        #print(frame)
-                            # if len(animation_database[entity]) < len(entity_animation)* int(FPS/img_FPS):
-                                # animation_database[entity].append(animation_path + '/' + entity + '/' + frame)
-                            # else:
-                                # break
-                #print(entity, len(animation_database[entity]))
             else:
                 for frame in entity_animation:
                     entity_frame = os.listdir(animation_path + '/' + entity + '/' + frame) 
@@ -244,13 +237,6 @@ class animation(object):
                         for more_frame in entity_frame:
                             for _ in range(int(FPS//img_FPS)):
                                 animation_database[frame].append(animation_path + '/' + entity + '/' + frame + '/' + more_frame)
-                                    #print(more_frame)
-                                    # if len(animation_database[frame]) < len(entity_frame)* int(FPS/img_FPS):
-                                        # animation_database[frame].append(animation_path + '/' + entity + '/' + frame + '/' + more_frame)
-                                    # else:
-                                        # break
-                            #print(more_frame, len(entity_frame))
-                            #print(frame, len(animation_database[frame]))
                     else:
                         for more_frame in entity_frame:
                             entity_status = os.listdir(animation_path + '/' + entity + '/' + frame + '/' + more_frame)
