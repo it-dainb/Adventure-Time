@@ -68,7 +68,7 @@ max_row, max_col = 16*7, 0
 ID = 1
 
 scroll = 0
-camera = [0, 0]
+camera = [0, 9999]
 
 CHUNK_SIZE = 8
 IMG_SIZE = [16, 16]
@@ -116,20 +116,29 @@ while True:
         obj = database[ID][0]
         obj_width = obj.get_width()
         obj_height = obj.get_height()
+
         if obj_height > max_col:
             max_col = obj_height
-        
         row += obj_width
-        if row + num * spacing > max_row:
-            col += max_col
-            max_col = 0
-            row = 0
-            num = 1
-            num_row += 1
+        if obj_width < max_row:
+            if row + num * spacing > max_row:
+                col += max_col
+                max_col = 0
+                row = 0
+                num = 1
+                num_row += 1
+            else:
+                tile_rects.append([pygame.Rect([row - obj_width + spacing * num , col - scroll + spacing * num_row, obj_width, obj_height]), ID])
+                tile.blit(obj, [row - obj_width + spacing * num, col - scroll + spacing * num_row])
+                ID += 1
         else:
+            col += max_col
+            row = obj_width
+            num = 1
             tile_rects.append([pygame.Rect([row - obj_width + spacing * num , col - scroll + spacing * num_row, obj_width, obj_height]), ID])
             tile.blit(obj, [row - obj_width + spacing * num, col - scroll + spacing * num_row])
             ID += 1
+            
         num += 1
     
     tile_area = pygame.Rect([0, 0, IMG_SIZE[0] * 8 - 8, tile_size[1]])
@@ -217,7 +226,22 @@ while True:
                 block_width = database[ID_select][0].get_width()
                 block_height = database[ID_select][0].get_height()
                 if block_height > IMG_SIZE[1]:
-                    offset_y = IMG_SIZE[0] - (block_height - (block_height//IMG_SIZE[0]*IMG_SIZE[0]))
+                    if block_width < IMG_SIZE[0]:   
+                        if block.x < m_x / SCALE <= block.x + IMG_SIZE[0] / 2:
+                            offset_y = IMG_SIZE[0] - (block_height - (block_height//IMG_SIZE[0]*IMG_SIZE[0]))
+                            offset_x = 0
+                        else:
+                            offset_y = IMG_SIZE[0] - (block_height - (block_height//IMG_SIZE[0]*IMG_SIZE[0]))
+                            offset_x = IMG_SIZE[0] - block_width
+                    else:
+                        if block.x < m_x / SCALE <= block.x + IMG_SIZE[0] / 2:
+                            offset_y = IMG_SIZE[0] - (block_height - (block_height//IMG_SIZE[0]*IMG_SIZE[0]))
+                            offset_x = 0
+                        else:
+                            offset_y = IMG_SIZE[0] - (block_height - (block_height//IMG_SIZE[0]*IMG_SIZE[0]))
+                            offset_x = (block_width // IMG_SIZE[0] + 1) * IMG_SIZE[0] - block_width
+                            
+                        
                 elif block_height < IMG_SIZE[0]:
                     if block.y < m_y / SCALE <= block.y + IMG_SIZE[0] / 2:
                         if block.x < m_x / SCALE <= block.x + IMG_SIZE[0] / 2:
@@ -234,7 +258,7 @@ while True:
                             offset_y = IMG_SIZE[0] - block_height
                             offset_x = IMG_SIZE[0] - block_width
                 else:
-                    offset_y = IMG_SIZE[0] - block_height
+                    offset_y = 0
                     offset_x = 0
                 loc = str(int((m_x / SCALE + camera[0] ) // IMG_SIZE[0] * IMG_SIZE[0] + offset_x)) + ';' + str(int((m_y / SCALE + camera[1]) // IMG_SIZE[0] * IMG_SIZE[0] + offset_y))
                 type_ = database[ID_select][2]
@@ -280,9 +304,9 @@ while True:
     # Remove block ------------------------------------------------------------------------------------------------------------------ #
     
     for data in block_rects:
-        #pygame.draw.rect(display, [255,255,255],data[0])
         if remove:
             if select_rect.colliderect(data[0]):
+                pygame.draw.rect(display, [255,255,255],data[0])
                 remove_block.append(data[1])
                 block_rects.remove(data)
     
@@ -305,8 +329,24 @@ while True:
         if in_map: 
             if block.collidepoint(m_x / SCALE, m_y / SCALE):
                 block_height = database[ID_select][0].get_height()
+                block_width = database[ID_select][0].get_width()
                 if block_height > IMG_SIZE[1]:
-                    offset_y = IMG_SIZE[0] - (block_height - (block_height//IMG_SIZE[0]*IMG_SIZE[0]))
+                    if block_width < IMG_SIZE[0]:   
+                        if block.x < m_x / SCALE <= block.x + IMG_SIZE[0] / 2:
+                            offset_y = IMG_SIZE[0] - (block_height - (block_height//IMG_SIZE[0]*IMG_SIZE[0]))
+                            offset_x = 0
+                        else:
+                            offset_y = IMG_SIZE[0] - (block_height - (block_height//IMG_SIZE[0]*IMG_SIZE[0]))
+                            offset_x = IMG_SIZE[0] - block_width
+                    else:
+                        if block.x < m_x / SCALE <= block.x + IMG_SIZE[0] / 2:
+                            offset_y = IMG_SIZE[0] - (block_height - (block_height//IMG_SIZE[0]*IMG_SIZE[0]))
+                            offset_x = 0
+                        else:
+                            offset_y = IMG_SIZE[0] - (block_height - (block_height//IMG_SIZE[0]*IMG_SIZE[0]))
+                            offset_x = (block_width // IMG_SIZE[0] + 1) * IMG_SIZE[0] - block_width
+                            
+                        
                 elif block_height < IMG_SIZE[0]:
                     if block.y < m_y / SCALE <= block.y + IMG_SIZE[0] / 2:
                         if block.x < m_x / SCALE <= block.x + IMG_SIZE[0] / 2:
@@ -323,8 +363,8 @@ while True:
                             offset_y = IMG_SIZE[0] - block_height
                             offset_x = IMG_SIZE[0] - block_width
                 else:
-                    offset_y = IMG_SIZE[0] - block_height
-                block_width = database[ID_select][0].get_width()
+                    offset_y = 0
+                    offset_x = 0
                 select_rect = pygame.Rect([block.x - 1 + offset_x, block.y - 1 + offset_y, block_width + 2, block_height +  2])
                 pygame.draw.rect(display, color, select_rect, 1)
 

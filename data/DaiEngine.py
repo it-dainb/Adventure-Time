@@ -7,7 +7,7 @@ from pygame.locals import *
 #  Setting enviroment ------------------------------------------------------------------------------------------------------------------ #
 FPS = 30
 
-img_FPS = 12
+img_FPS = 10
 FPS = FPS // img_FPS * img_FPS
 
 # Create database ------------------------------------------------------------------------------------------------------------------ #
@@ -66,6 +66,7 @@ def map_render(surface, scroll):
                     block_rect = pygame.Rect(pos_x, pos_y, data_width, data_height)
                     surface.blit(img, [pos_x - scroll[0], pos_y - scroll[1]])
                     if ID_im not in [1,2,3,23,37,50,55,56,57,58]:
+                        #pygame.draw.rect(surface, [255,0,0], [pos_x - scroll[0], pos_y - scroll[1], block_rect.width, block_rect.height], 1)
                         tile_rects.append(block_rect)
 
 # Create map ------------------------------------------------------------------------------------------------------------------ #
@@ -289,6 +290,27 @@ class object(object):
         for obj in obj_list:
             obj_database.append(obj[:len(obj) - 4])
     
+    def change_action(self, status, x, y):
+        self.x = x
+        self.y = y
+        if self.status != status:
+            self.status = status
+            self.frame = 0
+    
+    def one_time(self, status):
+        animation_list = os.listdir(animation_path)
+        if self.ID in animation_list:
+            check_list = os.listdir(animation_path + '/' + self.ID)
+            if check_list[0][-4:] != '.png':
+                ID = self.ID + '_' + status
+            else:
+                ID = self.ID
+        else:
+            ID = self.ID
+        if self.frame == len(animation_database[ID]) - 1:
+            return True
+    
+    
     # Load animation ------------------------------------------------------------------------------------------------------------------ #
     def load_animation(self, surface, status, scroll, draw = True):
         
@@ -335,6 +357,7 @@ class entity(object):
     def __init__(self, ID, pos):
         self.x = pos[0]
         self.y = pos[1]
+        self.offset = [0, 0]
         self.ID = ID
         self.pos = pos
         self.status = 'idle'
@@ -342,21 +365,67 @@ class entity(object):
         self.collision = {'top': False, 'bottom': False, 'right': False, 'left': False}
         self.flip = False
         self.img = pygame.image.load(animation_database[self.ID + '_' + self.status][0])
-        self.rect = pygame.Rect(self.x, self.y, self.img.get_width(), self.img.get_height())
+        self.rect = pygame.Rect(self.x + self.offset[0], self.y + self.offset[1], self.img.get_width(), self.img.get_height())
+        self.attack = False
+        self.movement = [0, 0]
+        self.y_momentum = 0
     
     def change_action(self, status):
         if self.status != status:
             self.status = status
             self.frame = 0
+        
     
+    def one_time(self, status, offset = [0, 0]):
+        ID = self.ID + '_' + status
+        self.offset = offset
+        self.change_action(status)
+        if self.frame == len(animation_database[ID]) - 1:
+            self.offset = [0, 0]
+            self.status = 'idle'
+            self.frame = 0
+            return True
+    
+    def attack_rect(self, area, offset):
+        self.attack = True
+        if self.flip:
+            if not self.one_time('sword_attack', offset):
+                attack_rect = pygame.Rect(self.x - area, self.y, self.img.get_width(), self.img.get_height())
+                return attack_rect
+            else:
+                self.attack = False
+        else:
+            if not self.one_time('sword_attack'):
+                attack_rect = pygame.Rect(self.x + area, self.y, self.img.get_width(), self.img.get_height())
+                return attack_rect
+            else:
+                self.attack = False
+
     def load_animation(self, surface, status, scroll, draw = True):
         ID = self.ID + '_' + status
         if self.frame > len(animation_database[ID]) - 1:
             self.frame = 0
         entity_anim = animation()
-        entity_anim.load_animation(surface, ID, self.frame, [self.rect.x - scroll[0], self.rect.y - scroll[1]], self.flip)
+        entity_anim.load_animation(surface, ID, self.frame, [self.rect.x + self.offset[0] - scroll[0], self.rect.y + self.offset[1] - scroll[1]], self.flip)
         self.frame += 1
-
+    
+    def check_fall(self):
+        fall = True
+        if not self.flip:
+            check_x = self.rect.x + self.img.get_width()
+            check_y = self.rect.y + self.img.get_height()
+        else:
+            check_x = self.rect.x - self.img.get_width()
+            check_y = self.rect.y + self.img.get_height()
+        
+        check_rect = pygame.Rect(check_x, check_y, self.img.get_width(), self.img.get_height())
+        #pygame.draw.rect(surface, [255,0,255], [check_x - scroll[0], check_y - scroll[1], self.img.get_width(), self.img.get_height()])
+        for tile_check in tile_rects:
+            if check_rect.colliderect(tile_check):
+                #pygame.draw.rect(surface, [255,255,0], [tile_check.x - scroll[0], tile_check.y - scroll[1], tile_check.width, tile_check.height], 2)
+                fall = False
+        if fall:
+            return True
 
     def move(self, movement):
         self.collision = {'top': False, 'bottom': False, 'right': False, 'left': False}
@@ -371,6 +440,7 @@ class entity(object):
             elif movement[0] < 0:
                 self.collision['left'] = True
                 self.rect.left = tile.right
+        self.x = self.rect.x
                 
         # Update location y ------------------------------------------------------------------------------------------------------------------ #
         self.rect.y += movement[1]
@@ -382,7 +452,7 @@ class entity(object):
             elif movement[1] < 0:
                 self.collision['top'] = True
                 self.rect.top = tile.bottom
-            
+        self.y = self.rect.y
 
 # obj = object('coin', [0, 0], [0, 0])
 # obj.create_database()
