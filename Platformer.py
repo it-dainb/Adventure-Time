@@ -30,7 +30,7 @@ bug = False
 
 # GAME MAP ------------------------------------------------------------------------------------------------------------------ #
 game_map = {}
-game_map = e.load_map('fall')
+game_map = e.load_map('finding')
 CHUNK_SIZE = 8
 IMG_SIZE = [16, 16]
 
@@ -39,8 +39,11 @@ IMG_SIZE = [16, 16]
 moving_right = False
 moving_left = False
 attack = False
+flash = False
 
 air_timer = 0
+attack_timer = 0
+flash_start = 0
 
 true_scroll = [0, 0]
 
@@ -74,15 +77,17 @@ for type_ in game_map:
 
 EFFECT = [] # [object, duration]
 hit_sparkle = False
+hit_player = False
 
 vel = 3
+entity_vel = 2
 jump_power = 5.1
 
 
 coin = 0
 # MAIN GAME -------------------------------------------------------------------------------------------------------------------------------#
 while True: 
-
+    
     display.fill([0, 0, 0])
 
     true_scroll[0] += (player.rect.x - true_scroll[0] - display.get_width()/2) * ( 10 * (e.img_FPS / e.FPS) ) * 1 / 20
@@ -119,11 +124,17 @@ while True:
             entity.y_momentum = 10
     
     player.movement = [0, 0]
-    
+        
     if moving_right:
-        player.movement[0] += vel
+        if player.status != 'run':
+            player.movement[0] += vel - 1
+        else:
+            player.movement[0] += vel
     if moving_left:
-        player.movement[0] -= vel
+        if player.status != 'run':
+            player.movement[0] -= vel - 1
+        else:
+            player.movement[0] -= vel
     
     player.movement[1] += player.y_momentum
     player.y_momentum = round(player.y_momentum + gravity, 1) # GRAVITY :))))
@@ -134,26 +145,27 @@ while True:
     # Action center ------------------------------------------------------------------------------------------------------------------ #
     prev_status = player.status 
     
-    if not player.attack:
-        if player.movement[0] > 0:
-            player.flip = False
-        elif player.movement[0] < 0 :
-            player.flip = True
-        #print(player_movement[1], ground)
-        if player.movement[0] != 0 and player.movement[1] == 0:
-            player.change_action('run')
-        if player.movement[0] == 0 and player.movement[1] == 0:
-            player.change_action('idle')
-        if player.movement[1] < 0 and jump_count < 2:
-            player.change_action('jump_up')
-        if player.movement[1] > ground and ( jump_count == 18 or jump_count == 1) or player.movement[1] > ground or player.collision['top']:
-            player.change_action('jump_down')
-        if 18 > jump_count >= 2:
-            if player.collision['top']:
-                check = False
-            if check:
-                player.change_action('jump_double')
-                jump_count += 1
+    if not hit_player:
+        if not player.attack:
+            if player.movement[0] > 0:
+                player.flip = False
+            elif player.movement[0] < 0 :
+                player.flip = True
+            #print(player_movement[1], ground)
+            if player.movement[0] != 0 and player.movement[1] == 0:
+                player.change_action('run')
+            if player.movement[0] == 0 and player.movement[1] == 0:
+                player.change_action('idle')
+            if player.movement[1] < 0 and jump_count < 2:
+                player.change_action('jump_up')
+            if player.movement[1] > ground and ( jump_count == 18 or jump_count == 1) or player.movement[1] > ground or player.collision['top']:
+                player.change_action('jump_down')
+            if 18 > jump_count >= 2:
+                if player.collision['top']:
+                    check = False
+                if check:
+                    player.change_action('jump_double')
+                    jump_count += 1
 
     if player.movement[1] == 0:
         if player.collision['bottom']:
@@ -163,14 +175,28 @@ while True:
     now_status = player.status
 
     if player.attack:
-        attack_rect = player.attack_rect(16, [-16, 0])   
+        attack_rect = player.attack_rect(14, [-16, 0])   
         # if player.attack:
             # pygame.draw.rect(display, [255,0,255], [attack_rect.x + 50, attack_rect.y - 9999, attack_rect.width, attack_rect.height], 1)
     
     # pygame.draw.rect(display, [255,255,255], [player.rect.x + 50, player.rect.y - 9999, player.rect.width, player.rect.height])
     # pygame.draw.rect(display, [255,0,255], [player.x + 50, player.y - 9999, player.rect.width, player.rect.height], 1)
 
-
+    # Flash skill ------------------------------------------------------------------------------------------------------------------ #
+    if flash:
+        if time.time() - flash_start >= 5:
+            for i in range(50):
+                if player.flip:
+                    player.move([-1, 0])
+                else:
+                    player.move([ 1, 0])
+                if i % 10 == 0:
+                    player.load_animation(display, 'hit', scroll)
+                #pygame.display.update()
+            flash_start = time.time()
+            
+    
+    
     # Create effect ------------------------------------------------------------------------------------------------------------------ #
     if prev_status != 'jump_up' and now_status == 'jump_up' or ( prev_status == 'jump_up' and now_status == 'jump_double'):
         EFFECT.append([e.object('herochar_before_jump_dust', [player.rect.x, player.rect.y]), 8])
@@ -220,74 +246,138 @@ while True:
 
     # Entity system ------------------------------------------------------------------------------------------------------------------ #
     for entity in ENTITY:
-       # if display_render.colliderect(entity.rect):
-            # Entity action ------------------------------------------------------------------------------------------------------------------ #
+
+        # Entity action ------------------------------------------------------------------------------------------------------------------ #
         if entity.collision['bottom']:
             entity.y_momentum = 0
         if entity.collision['top']:
             entity.y_momentum = 0
         
-        if player.attack  and attack_rect.colliderect(entity.rect):
+        # Logic enemy ------------------------------------------------------------------------------------------------------------------ #
+        attack_area = entity.attack_area(2)
+        vision_area = entity.vision_area()
+       # pygame.draw.rect(display, [255,0,0], [vision_area.x - scroll[0], vision_area.y - scroll[1], vision_area.width, vision_area.height], 1)
+        #pygame.draw.rect(display, [255,255,0], [attack_area.x - scroll[0], attack_area.y - scroll[1], attack_area.width, attack_area.height], 1)
+        
+        # Pause animation when attacked by player ------------------------------------------------------------------------------------------------------------------ #
+        if player.attack and (attack_rect.colliderect(entity.rect)  or player.rect.colliderect(entity.rect)):
             pass
-        else:
-            if entity.ID != 'slime':
-                if entity.ID != 'bomber_goblin':
-                    if entity.flip:
-                        if entity.check_fall():
-                            entity.movement[0] = -2
-                            entity.flip = False
-                        elif not entity.collision['left']:
-                            entity.movement[0] = -2
-                        else:
-                            entity.flip = False
-                    else:
-                        if entity.check_fall():
-                            entity.movement[0] = 2
-                            entity.flip = True
-                        elif not entity.collision['right']:
-                            entity.movement[0] = 2
-                        else:
-                            entity.flip = True
+        elif entity.attack and entity.ID != 'mushroom' and entity.ID != 'slime':
+            if entity.flip and entity.ID == 'goblin':
+                if entity.one_time('attack', [- 8, 0]):
+                    entity.attack = False
             else:
-                if not entity.flip:
-                    if not entity.collision['left']:
-                        entity.movement[0] = -2
+                if entity.one_time('attack'):
+                    entity.attack = False
+        elif entity.attack:
+            if entity.one_time('idle'):
+                entity.attack = False
+        else:
+            if player.rect.colliderect(vision_area):
+                # Attack Player ------------------------------------------------------------------------------------------------------------------ #
+                if player.rect.colliderect(attack_area) and entity.attack_timer > 15 and not flash:
+                    entity.attack = True
+                    entity.attack_timer = 0
+                    hit_sparkle = True
+                    hit_player = True
+                    if player.x + player.rect.width / 2>= entity.x + attack_area.width / 2:
+                        entity.flip = False
                     else:
                         entity.flip = True
+                    pass
                 else:
-                    if not entity.collision['right']:
+                    if player.x < entity.x:
+                        entity.movement[0] = -2
+                        entity.flip = True
+                    elif player.x > entity.x:
                         entity.movement[0] = 2
-                    else:
                         entity.flip = False
-    
+            else:
+                # Return ------------------------------------------------------------------------------------------------------------------ #
+                if entity.ID != 'slime':
+                    if entity.ID != 'bomber_goblin':
+                        if entity.flip:
+                            if entity.check_fall():
+                                entity.movement[0] = - entity_vel
+                                entity.flip = False
+                            elif not entity.collision['left']:
+                                entity.movement[0] = - entity_vel
+                            else:
+                                entity.flip = False
+                        else:
+                            if entity.check_fall():
+                                entity.movement[0] = entity_vel
+                                entity.flip = True
+                            elif not entity.collision['right']:
+                                entity.movement[0] = entity_vel
+                            else:
+                                entity.flip = True
+                else:
+                    #entity.offset = [0, -8]
+                    if not entity.flip:
+                        if entity.check_fall():
+                            entity.movement[0] = - entity_vel
+                            entity.flip = True
+                        elif not entity.collision['left']:
+                            entity.movement[0] = - entity_vel
+                        else:
+                            entity.flip = True
+                    else:
+                        if entity.check_fall():
+                            entity.movement[0] = entity_vel
+                            entity.flip = False
+                        elif not entity.collision['right']:
+                            entity.movement[0] = entity_vel
+                        else:
+                            entity.flip = False
+
         entity.move(entity.movement)
        # pygame.draw.rect(display, [255,0,255], [player.x - scroll[0], player.y - scroll[1], 16, 16])
         
         # Entity move ------------------------------------------------------------------------------------------------------------------ #
-        
-        
         if not player.attack:
-            if entity.ID != 'bomber_goblin':
-                if entity.movement[0] > 0:
-                    if entity.ID != 'blue_fly' and entity.ID != 'orange_fly':
-                        entity.change_action('run')
-                    else:
-                        entity.change_action('fly')
-                if entity.movement[0] < 0:
-                    if entity.ID != 'blue_fly' and entity.ID != 'orange_fly':
-                        entity.change_action('run')
-                    else:
-                        entity.change_action('fly')
-                if entity.movement[0] == 0:
+            if not entity.attack:
+                if entity.ID != 'bomber_goblin':
+                    if entity.movement[0] > 0:
+                        if entity.ID != 'blue_fly' and entity.ID != 'orange_fly':
+                            entity.change_action('run')
+                        else:
+                            entity.change_action('fly')
+                    if entity.movement[0] < 0:
+                        if entity.ID != 'blue_fly' and entity.ID != 'orange_fly':
+                            entity.change_action('run')
+                        else:
+                            entity.change_action('fly')
+                    if entity.movement[0] == 0:
+                        entity.change_action('idle')
+                else:
                     entity.change_action('idle')
-            else:
-                entity.change_action('idle')
-        elif player.attack and attack_rect.colliderect(entity.rect):
-            entity.one_time('hit')
+        elif player.attack and  (attack_rect.colliderect(entity.rect)  or player.rect.colliderect(entity.rect)):
+            if entity.one_time('hit'):
+                player.attack = False
+                entity.attack = False
             if hit_sparkle:
+                if not player.flip:
+                    entity.move([ 10, 0])
+                else:
+                    entity.move([ -10, 0])
                 EFFECT.append([e.object('herochar_hit_sparkle', [entity.rect.x, entity.rect.y]), 8])
                 hit_sparkle = False
         
+        # Player HIT ------------------------------------------------------------------------------------------------------------------ #
+        if hit_player:# and (attack_area.colliderect(player.rect)):
+            if player.one_time('hit'):
+                #print('true')
+                hit_player = False
+                entity.attack = False
+            if hit_sparkle:
+                if not entity.flip:
+                    player.move([10, 0])
+                else:
+                    player.move([ -10, 0])
+                EFFECT.append([e.object('herochar_hit_sparkle', [player.rect.x, player.rect.y]), 8])
+                hit_sparkle = False
+
         # Entity load animation ------------------------------------------------------------------------------------------------------------------ #
         entity.load_animation(display, entity.status, scroll)
     
@@ -301,7 +391,11 @@ while True:
         else:
             EFFECT.pop(EFFECT.index(effect))
     
-
+    if player.attack and hit_player:
+        player.attack = False
+    
+    flash = False
+    
     # Update key ------------------------------------------------------------------------------------------------------------------ #
     for event in pygame.event.get():
         if event.type == QUIT:
@@ -311,7 +405,9 @@ while True:
             WINDOWN_SIZE = [event.w, event.h]
         if event.type == KEYDOWN:
             if event.key == K_SPACE:
-                player.attack = True
+                if not hit_player and player.attack_timer > 15:
+                    player.attack = True
+                    player.attack_timer = 0
                 hit_sparkle = True
             if event.key == K_RIGHT:
                 moving_right = True
@@ -324,12 +420,14 @@ while True:
                     else:
                         player.y_momentum = - jump_power + 1
                     jump_count += 1
+            if event.key == K_f:
+                flash = True
         if event.type == KEYUP:
             if event.key == K_RIGHT:
                 moving_right = False
             if event.key == K_LEFT:
                 moving_left = False
-
+    
     surf = pygame.transform.scale(display, WINDOWN_SIZE)
     screen.blit(surf, [0, 0])
     

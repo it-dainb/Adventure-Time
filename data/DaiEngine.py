@@ -10,6 +10,9 @@ FPS = 30
 img_FPS = 10
 FPS = FPS // img_FPS * img_FPS
 
+global IMG_SIZE
+IMG_SIZE = [16, 16]
+
 # Create database ------------------------------------------------------------------------------------------------------------------ #
 database = {} # ID: [img_loaded, img_name, type] type can be obj, tile, entity
 def create_database():
@@ -103,7 +106,7 @@ def generate_chunk(x, y, CHUNK_SIZE): # Chunk = tile*tile
 
 # Render tiles in chunk ------------------------------------------------------------------------------------------------------------------ #
 #game_map = {} # { '1;1' : [[[x, y], tile_type] * 64], .... }
-def chunk_render(surface, WINDOWN_SIZE, SCALE, CHUNK_SIZE, IMG_SIZE, scroll):
+def chunk_render(surface, WINDOWN_SIZE, SCALE, CHUNK_SIZE, scroll):
     global tile_rects
     
     # take loc of chunk
@@ -354,6 +357,8 @@ class object(object):
 
 # Entity stuff ------------------------------------------------------------------------------------------------------------------ #
 class entity(object):
+    global IMG_SIZE
+    
     def __init__(self, ID, pos):
         self.x = pos[0]
         self.y = pos[1]
@@ -369,6 +374,23 @@ class entity(object):
         self.attack = False
         self.movement = [0, 0]
         self.y_momentum = 0
+        self.attack_timer = 0
+    
+    def vision_area(self):
+        vis_x = self.x - 5 * IMG_SIZE[0]
+        vis_y = self.y - IMG_SIZE[1] * 2
+        vis_width = 5 * IMG_SIZE[0] * 2 + self.img.get_width()
+        vis_height = IMG_SIZE[1] * 2 + self.img.get_height()
+        vision_rect = pygame.Rect([vis_x, vis_y, vis_width, vis_height])
+        return vision_rect
+    
+    def attack_area(self, area):
+        atk_x = self.x - area
+        atk_y = self.y
+        atk_width = area * 2 + IMG_SIZE[0]
+        atk_height = IMG_SIZE[1]
+        attack_area = pygame.Rect([atk_x, atk_y, atk_width, atk_height])
+        return attack_area
     
     def change_action(self, status):
         if self.status != status:
@@ -387,6 +409,7 @@ class entity(object):
             return True
     
     def attack_rect(self, area, offset):
+        self.area = area
         self.attack = True
         if self.flip:
             if not self.one_time('sword_attack', offset):
@@ -408,6 +431,7 @@ class entity(object):
         entity_anim = animation()
         entity_anim.load_animation(surface, ID, self.frame, [self.rect.x + self.offset[0] - scroll[0], self.rect.y + self.offset[1] - scroll[1]], self.flip)
         self.frame += 1
+        self.attack_timer += 1
     
     def check_fall(self):
         fall = True
