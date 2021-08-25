@@ -2,6 +2,7 @@ import pygame
 import sys
 import os
 import time
+import math
 import data.DaiEngine as e
 from pygame.locals import *
 
@@ -30,7 +31,7 @@ bug = False
 
 # GAME MAP ------------------------------------------------------------------------------------------------------------------ #
 game_map = {}
-game_map = e.load_map('finding')
+game_map = e.load_map('trap')
 CHUNK_SIZE = 8
 IMG_SIZE = [16, 16]
 
@@ -56,24 +57,30 @@ check = True
 ENTITY = []
 OBJECT = []
 COIN = []
+strange_door_ex = False
 
 for type_ in game_map:
     if type_ == 'entity':
         for data in game_map[type_]:
-            if data[1] == 91:
+            if data[1] == 90:
                 player = e.entity(data[2], data[0])
             else:
                 ENTITY.append(e.entity(data[2], data[0]))
     elif type_ == 'object':
         for data in game_map[type_]:
-            if data[1] == 83:
+            if data[1] == 82:
                 OBJECT.append([e.object(data[2], data[0]), 'closed'])
+                strange_door_rect = pygame.Rect(OBJECT[-1][0].get_rect('closed'))
+                strange_door_ex = True
             elif data[1] == 65:
                 OBJECT.append([e.object(data[2], data[0]), 'on_ground'])
             elif data[1] == 67:
                 COIN.append([e.object(data[2], data[0]), 'idle'])
             else:
                 OBJECT.append([e.object(data[2], data[0]), 'idle'])
+                
+                
+            
 
 EFFECT = [] # [object, duration]
 hit_sparkle = False
@@ -85,6 +92,22 @@ jump_power = 5.1
 
 
 coin = 0
+
+# Obj variable ------------------------------------------------------------------------------------------------------------------ #
+get = False
+lever_active = False
+hit_lever = 0
+buttom_active = False
+strange_door_opening = False
+strange_door_closing = False
+strange_door_closed = True
+saved = False
+saving = False
+loot_box = False
+loot_box_opened = False
+vase_break = False
+start = False
+
 # MAIN GAME -------------------------------------------------------------------------------------------------------------------------------#
 while True: 
     
@@ -99,11 +122,11 @@ while True:
     # Backround ------------------------------------------------------------------------------------------------------------------ #
     pygame.draw.rect(display , (7,80,75), pygame.Rect(0,120,300,80))
     for background_object in background_objects:
-        obj_rect = pygame.Rect(background_object[1][0] - scroll[0]*background_object[0],background_object[1][1]-scroll[1]*background_object[0],background_object[1][2],background_object[1][3])
+        bg_rect = pygame.Rect(background_object[1][0] - scroll[0]*background_object[0],background_object[1][1]-scroll[1]*background_object[0],background_object[1][2],background_object[1][3])
         if background_object[0] == 0.5:
-            pygame.draw.rect(display, (14, 222, 150), obj_rect)
+            pygame.draw.rect(display, (14, 222, 150), bg_rect)
         else:
-            pygame.draw.rect(display, (9, 91, 85), obj_rect)
+            pygame.draw.rect(display, (9, 91, 85), bg_rect)
 
     # TILE RENDERING ------------------------------------------------------------------------------------------------------------------ #
     #e.chunk_render(display, WINDOWN_SIZE, SCALE, CHUNK_SIZE, IMG_SIZE, scroll)
@@ -145,12 +168,13 @@ while True:
     # Action center ------------------------------------------------------------------------------------------------------------------ #
     prev_status = player.status 
     
+    if moving_right:
+        player.flip = False
+    elif moving_left:
+        player.flip = True
+    
     if not hit_player:
         if not player.attack:
-            if player.movement[0] > 0:
-                player.flip = False
-            elif player.movement[0] < 0 :
-                player.flip = True
             #print(player_movement[1], ground)
             if player.movement[0] != 0 and player.movement[1] == 0:
                 player.change_action('run')
@@ -184,12 +208,30 @@ while True:
 
     # Flash skill ------------------------------------------------------------------------------------------------------------------ #
     if flash:
-        if time.time() - flash_start >= 5:
+       # if time.time() - flash_start >= 5:
             for i in range(50):
                 if player.flip:
-                    player.move([-1, 0])
+                    if strange_door_ex:
+                        if player.rect.colliderect(strange_door_rect):
+                            if player.movement[0] > 0:
+                                player.rect.right = strange_door_rect.left
+                            if player.movement[0] < 0:
+                                player.rect.left = strange_door_rect.right
+                            if strange_door_rect.x <= player.x + player.img.get_width() <= strange_door_rect.x + strange_door_rect.width and  strange_door_rect.y >= player.y:
+                                player.rect.bottom = strange_door_rect.top
+                    else:
+                        player.move([-2, 0])
                 else:
-                    player.move([ 1, 0])
+                    if strange_door_ex:
+                        if player.rect.colliderect(strange_door_rect):
+                            if player.movement[0] > 0:
+                                player.rect.right = strange_door_rect.left
+                            if player.movement[0] < 0:
+                                player.rect.left = strange_door_rect.right
+                            if strange_door_rect.x <= player.x + player.img.get_width() <= strange_door_rect.x + strange_door_rect.width and  strange_door_rect.y >= player.y:
+                                player.rect.bottom = strange_door_rect.top
+                    else:
+                        player.move([ 2, 0])
                 if i % 10 == 0:
                     player.load_animation(display, 'hit', scroll)
                 #pygame.display.update()
@@ -224,21 +266,248 @@ while True:
     
     # Object system ------------------------------------------------------------------------------------------------------------------ #
     for obj in OBJECT:
-        if display_render.colliderect(obj[0].get_rect(obj[1])):
-            obj[0].load_animation(display, obj[1], scroll)
-    
+        if not get:
+            obj_rect = obj[0].get_rect(obj[1])
+            obj[0].status = obj[1]
+        else:
+            obj_rect = obj[0].get_rect(obj[0].status)
+        if display_render.colliderect(obj_rect):
+            
+            # Buttom ------------------------------------------------------------------------------------------------------------------ #
+            if obj[0].ID == 'buttom':
+                if player.rect.colliderect(obj_rect):
+                    obj[0].change_action('pressed')
+                    buttom_active = True
+                    obj[0].load_animation(display, obj[0].status, scroll)
+                else:
+                    obj[0].change_action('idle')
+                    buttom_active = False
+                    obj[0].load_animation(display, obj[0].status, scroll)
+            
+            # Lever ------------------------------------------------------------------------------------------------------------------ #
+            elif obj[0].ID == 'lever':
+                if player.attack:
+                    if ( player.rect.colliderect(obj_rect) or attack_rect.colliderect(obj_rect) ):
+                        if hit_lever == 0:
+                            if (player.rect.x <= obj_rect.x + obj_rect.width / 2 and not player.flip) or (player.rect.x >= obj_rect.x + obj_rect.width / 2 and player.flip) or obj_rect.x - 10 <= player.rect.x <= obj_rect.x + obj_rect.width:
+                                if lever_active:
+                                    lever_active = False
+                                    obj[0].change_action('idle')
+                                else:
+                                    lever_active = True
+                                    obj[0].change_action('active')
+                        hit_lever += 1
+                else:
+                    hit_lever = 0
+                obj[0].load_animation(display, obj[0].status, scroll)
+            
+            # Strange door ------------------------------------------------------------------------------------------------------------------ #
+            elif obj[0].ID == 'strange_door':
+                
+                # Opening animation ------------------------------------------------------------------------------------------------------------------ #
+                if buttom_active or lever_active:
+                        
+                    if not obj[0].one_time('opening') and not strange_door_opening:
+                        obj[0].load_animation(display, 'opening', scroll)
+                        strange_door_rect.y += 1
+                        strange_door_rect.height -= 1
+                       # obj[0].y += 1
+                    else:
+                        strange_door_rect.top = obj_rect.bottom
+                        strange_door_opening = True
+                        strange_door_closing = False
+                        strange_door_closed =False
+                
+                # Closing animation ------------------------------------------------------------------------------------------------------------------ #
+                elif not strange_door_closed:
+                    if not obj[0].one_time('closing') and not strange_door_closing:
+                        obj[0].load_animation(display, 'closing', scroll)
+                        strange_door_rect.y -= 1
+                        strange_door_rect.height += 1
+                    else:
+                        strange_door_rect.top = obj_rect.top
+                        strange_door_opening = False
+                        strange_door_closing = True
+                        strange_door_closed = True
+                
+                # Closed  ------------------------------------------------------------------------------------------------------------------ #
+                else:
+                    strange_door_rect = obj_rect
+                    obj[0].load_animation(display, 'closed', scroll)
+                    strange_door_closed = True
+            
+            # Check spawn point ------------------------------------------------------------------------------------------------------------------ #
+            elif obj[0].ID == 'save_point':
+                if player.rect.colliderect(obj_rect) and not saved:
+                    saved = True
+                    saving = True
+                if saving:
+                    if not obj[0].one_time('saving'):
+                        obj[0].load_animation(display, 'saving', scroll)
+                        # Still dev
+                    else:
+                        saving = False
+                else:
+                    obj[0].load_animation(display, 'idle', scroll)
+            
+            # Loot box ------------------------------------------------------------------------------------------------------------------ #
+            elif obj[0].ID == 'loot_box':
+                if player.attack and not loot_box_opened:
+                    if ( player.rect.colliderect(obj_rect) or attack_rect.colliderect(obj_rect) ):
+                        if not loot_box:
+                            loot_box = True
+                if loot_box:                
+                    if not obj[0].one_time('opening', [0, -2]):
+                        obj[0].load_animation(display, 'opening', scroll)
+                    else:
+                        loot_box = False
+                        loot_box_opened = True
+                elif loot_box_opened:
+                    obj[0].load_animation(display, 'opened', scroll)
+                else:
+                    obj[0].load_animation(display, 'idle', scroll)
+            
+            # Vase ------------------------------------------------------------------------------------------------------------------ #
+            elif obj[0].ID == 'vase':
+                if player.attack and not vase_break:
+                    if ( player.rect.colliderect(obj_rect) or attack_rect.colliderect(obj_rect) ):
+                        vase_break =True
+                if vase_break:
+                    if not obj[0].one_time('breaking'):
+                        obj[0].load_animation(display, 'breaking', scroll)
+                    else:
+                        vase_break = False
+                else:
+                    obj[0].load_animation(display, 'idle', scroll)
+            
+            # Spike ------------------------------------------------------------------------------------------------------------------ #
+            elif obj[0].ID == 'spikes':
+                if not obj[0].attack:
+                    attack_area = obj[0].attack_area([0, 32], [0, 32])
+                    obj[0].load_animation(display, 'idle', scroll)
+                    #pygame.draw.rect(display, [255,255,0], [attack_area.x - scroll[0], attack_area.y - scroll[1], attack_area.width, attack_area.height], 1)
+                if player.rect.colliderect(attack_area):
+                    obj[0] = e.object('spikes_trap', [obj[0].x, obj[0].y])
+            
+            elif obj[0].ID == 'spikes_trap':
+                obj[0].move([0, 4])
+                obj[0].load_animation(display, 'idle', scroll)
+                if obj[0].get_rect('idle').colliderect(player.rect) and not obj[0].collision['bottom'] and not obj[0].attack != 0:
+                    hit_player = True
+                    hit_sparkle = True
+                    obj[0].attack = 1
+                
+            # # Trap_suspended ------------------------------------------------------------------------------------------------------------------ #
+            elif obj[0].ID == 'trap_suspended':
+                obj[0].load_animation(display, obj[1], scroll)
+                if not start:
+                    obj[0].w_x = 0.117
+                    obj[0].w_y = 0.235
+                    offset_x = 0
+                    offset_y = 0
+                    obj[0].time = 0
+                    start = True
+                    t_x = obj[0].x + 37
+                    t_y = obj[0].y + 15
+                else:
+                    if obj[0].time == 54:
+                        obj[0].time = 0
+                    t_x = obj[0].x + offset_x + 37
+                    t_y = obj[0].y + offset_y + 15
+                offset_x = 39 * math.cos(obj[0].w_x * obj[0].time + math.pi/2)
+                offset_y = 8 * math.cos(obj[0].w_y * obj[0].time)
+                obj[0].time += 1
+                #print(f"x: {offset_x} | y: {offset_y}")
+                trap_suspended_rect = pygame.Rect(t_x, t_y, 13, 20)
+                if player.rect.colliderect(trap_suspended_rect):
+                    hit_player = True
+                    hit_sparkle = True
+                #pygame.draw.rect(display, [0,255,0],[trap_suspended_rect.x - scroll[0], trap_suspended_rect.y - scroll[1], trap_suspended_rect.width, trap_suspended_rect.height], 1)
+                    
+                # pass
+            
+            # # Bomb ------------------------------------------------------------------------------------------------------------------ #
+            elif obj[0].ID == 'bomb':
+                if obj[0].attack != 2:
+                    if not obj[0].one_time('on_ground'):
+                        obj[0].load_animation(display, 'on_ground', scroll)
+                    else:
+                        obj[0].attack = 1
+                        bomb_area = obj[0].attack_area([16, 16])
+                        EFFECT.append([e.object('explosion', [obj[0].x - 13, obj[0].y - 24]), 30])
+                        pygame.draw.rect(display, [255,255,0], [bomb_area.x - scroll[0], bomb_area.y - scroll[1], bomb_area.width, bomb_area.height], 1)
+                    # pass
+            
+            # Another stuff ------------------------------------------------------------------------------------------------------------------ #
+            else:
+                obj[0].load_animation(display, obj[1], scroll)
+        
+        # Player can pass strange door ------------------------------------------------------------------------------------------------------------------ #
+        if obj[0].ID == 'strange_door_rect':
+            if player.rect.colliderect(strange_door_rect):
+                if player.movement[0] > 0:
+                    player.rect.right = strange_door_rect.left
+                if player.movement[0] < 0:
+                    player.rect.left = strange_door_rect.right
+                if strange_door_rect.x <= player.x + player.img.get_width() <= strange_door_rect.x + strange_door_rect.width and  strange_door_rect.y >= player.y:
+                    player.rect.bottom = strange_door_rect.top
+
+        # Bomb hit player ------------------------------------------------------------------------------------------------------------------ #
+        if obj[0].ID == 'bomb':
+            if obj[0].attack == 1:
+                pygame.draw.rect(display, [255,255,0], [bomb_area.x - scroll[0], bomb_area.y - scroll[1], bomb_area.width, bomb_area.height], 1)
+                #if 
+                if player.rect.colliderect(bomb_area):
+                    hit_sparkle = True
+                    hit_player = True
+                    obj[0].attack = 2
+                else:
+                    obj[0].attack = 2
+        
+        if hit_player:# and (attack_area.colliderect(player.rect)):
+            if player.one_time('hit'):
+                #print('true')
+                hit_player = False
+            if hit_sparkle:
+                if obj[0].ID == 'bomb':
+                    if player.x >= obj[0].rect.x + obj[0].rect.width / 2:
+                        print('true')
+                        player.move([ 20, 0])
+                    else:
+                        print('false')
+                        player.move([ - 20, 0])
+                elif obj[0].ID == 'spikes_trap':
+                    player.move([0, 10])
+                elif obj[0].ID == 'trap_suspended':
+                    #print(player.x ,trap_suspended_rect.x + trap_suspended_rect.width)
+                    if player.x >= trap_suspended_rect.x: #+ trap_suspended_rect.width:
+                        player.move([20, 0])
+                    else:
+                        player.move([-20, 0])
+                    
+                # else:
+                    # if not entity.flip:
+                        # player.move([10, 0])
+                    # else:
+                        # player.move([ -10, 0])
+                EFFECT.append([e.object('herochar_hit_sparkle', [player.rect.x, player.rect.y]), 8])
+                hit_sparkle = False
+        
+        #pygame.draw.rect(display, [255,255,0], [strange_door_rect.x - scroll[0], strange_door_rect.y - scroll[1], strange_door_rect.width, strange_door_rect.height], 2)
+        #pygame.draw.rect(display, [255,0,0], [obj_rect.x - scroll[0], obj_rect.y - scroll[1], obj_rect.width, obj_rect.height], 1)
+    get = True
     # Coin system ------------------------------------------------------------------------------------------------------------------ #
     for coin_o in COIN:
         if player.attack:
             if attack_rect.colliderect(coin_o[0].get_rect(coin_o[1])):
-                coin_o[0].change_action('pickup', coin_o[0].x, coin_o[0].y - 8)
+                coin_o[0].change_action('pickup')
         elif player.rect.colliderect(coin_o[0].get_rect(coin_o[1])):
-            coin_o[0].change_action('pickup', coin_o[0].x, coin_o[0].y - 8)
+            coin_o[0].change_action('pickup')
         if display_render.colliderect(coin_o[0].get_rect(coin_o[1])):
             if coin_o[0].status == 'idle':
                 coin_o[0].load_animation(display, 'idle', scroll)
             else:
-                if not coin_o[0].one_time('pickup'):
+                if not coin_o[0].one_time('pickup', [0, -8]):
                     coin_o[0].load_animation(display, coin_o[0].status, scroll)
                 else:
                     COIN.remove(coin_o)
@@ -257,7 +526,7 @@ while True:
         attack_area = entity.attack_area(2)
         vision_area = entity.vision_area()
        # pygame.draw.rect(display, [255,0,0], [vision_area.x - scroll[0], vision_area.y - scroll[1], vision_area.width, vision_area.height], 1)
-        #pygame.draw.rect(display, [255,255,0], [attack_area.x - scroll[0], attack_area.y - scroll[1], attack_area.width, attack_area.height], 1)
+       # pygame.draw.rect(display, [255,255,0], [attack_area.x - scroll[0], attack_area.y - scroll[1], attack_area.width, attack_area.height], 1)
         
         # Pause animation when attacked by player ------------------------------------------------------------------------------------------------------------------ #
         if player.attack and (attack_rect.colliderect(entity.rect)  or player.rect.colliderect(entity.rect)):
@@ -273,6 +542,8 @@ while True:
             if entity.one_time('idle'):
                 entity.attack = False
         else:
+            if entity.ID != 'slime':
+                entity.offset = [0, 0]
             if player.rect.colliderect(vision_area):
                 # Attack Player ------------------------------------------------------------------------------------------------------------------ #
                 if player.rect.colliderect(attack_area) and entity.attack_timer > 15 and not flash:

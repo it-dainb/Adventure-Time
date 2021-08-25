@@ -285,22 +285,65 @@ class object(object):
         self.x = pos[0]
         self.y = pos[1]
         self.pos = pos
+        self.offset = [0, 0]
+        self.attack = 0
+        self.collision = {'top': False, 'bottom': False, 'right': False, 'left': False}
+        self.time = 0
+        self.w_x = 0
+        self.w_y = 0
         #self.rect = self.get_rect(self.status)
         pass
+    
+    def move(self, movement):
+        self.collision = {'top': False, 'bottom': False, 'right': False, 'left': False}
+        self.rect =self.get_rect(self.status)
+        
+        # Update location x ---------------------------------------------------------------------------------------------------- #
+        self.rect.x += movement[0]
+        hit_list = collide_test(self.rect, tile_rects)
+        for tile in hit_list:
+            if movement[0] > 0:
+                self.collision['right'] = True
+                self.rect.right = tile.left
+            elif movement[0] < 0:
+                self.collision['left'] = True
+                self.rect.left = tile.right
+        self.x = self.rect.x
+                
+        # Update location y ------------------------------------------------------------------------------------------------------------------ #
+        self.rect.y += movement[1]
+        hit_list = collide_test(self.rect, tile_rects)
+        for tile in hit_list:
+            if movement[1] >= 0:
+                self.collision['bottom'] = True
+                self.rect.bottom = tile.top
+            elif movement[1] < 0:
+                self.collision['top'] = True
+                self.rect.top = tile.bottom
+        self.y = self.rect.y
+    
+    def attack_area(self, area, offset = [0,0]):
+        attack_x = self.x + offset[0] - area[0]
+        attack_y = self.y + offset[1] - area[1]
+        attack_width = area[0] * 2 + self.get_rect(self.status).width
+        attack_height = area[1] * 2 + self.get_rect(self.status).height
+        
+        attack_area = pygame.Rect(attack_x, attack_y, attack_width, attack_height)
+        return attack_area
     
     def create_database(self):
         obj_list = os.listdir(obj_path)
         for obj in obj_list:
             obj_database.append(obj[:len(obj) - 4])
     
-    def change_action(self, status, x, y):
-        self.x = x
-        self.y = y
+    def change_action(self, status, offset = [0, 0]):
+        self.offset = offset
         if self.status != status:
             self.status = status
             self.frame = 0
     
-    def one_time(self, status):
+    def one_time(self, status, offset = [0, 0]):
+        self.offset = offset
         animation_list = os.listdir(animation_path)
         if self.ID in animation_list:
             check_list = os.listdir(animation_path + '/' + self.ID)
@@ -311,6 +354,7 @@ class object(object):
         else:
             ID = self.ID
         if self.frame == len(animation_database[ID]) - 1:
+            self.frame = 0
             return True
     
     
@@ -324,11 +368,11 @@ class object(object):
                 ID = self.ID + '_' + status
             else:
                 ID = self.ID
-            if self.frame > len(animation_database[ID]):
+            if self.frame > len(animation_database[ID]) - 1:
                 self.frame = 0
             obj_anim = animation()
             self.status, self.frame = obj_anim.change_action(self.status, self.frame, status)
-            obj_img = obj_anim.load_animation(surface, ID, self.frame, [self.x - scroll[0], self.y - scroll[1]], draw)
+            obj_img = obj_anim.load_animation(surface, ID, self.frame, [self.x - scroll[0] + self.offset[0], self.y - scroll[1] + self.offset[1]], draw)
         else:
             self.frame = 0
             ID = self.ID

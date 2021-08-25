@@ -85,7 +85,6 @@ export = False
 import_ = False
 num_tile = 0
 
-test = {} #  'tile +' : {'LOC': [ID_select, block_rect]}
 remove_block =[]
 
 ID_im = 0
@@ -93,6 +92,15 @@ ID_im = 0
 offset_x = 0
 momen = 5
 
+print()
+print('********************************************')
+print()
+print(' Q for zoom out and E for zoom in')
+print(' W,A,S,D for move camera')
+print(' F1 for save map. Map saved in data/map')
+print(' F2 for load map')
+print()
+print('********************************************')
 # Main game ------------------------------------------------------------------------------------------------------------------ #
 while True:
     
