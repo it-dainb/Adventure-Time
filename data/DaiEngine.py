@@ -2,6 +2,7 @@ import pygame
 import os
 import random
 import json
+import math
 from pygame.locals import *
 
 #  Setting enviroment ------------------------------------------------------------------------------------------------------------------ #
@@ -291,8 +292,22 @@ class object(object):
         self.time = 0
         self.w_x = 0
         self.w_y = 0
+        self.DDDH = [0, 0]
+        self.hit_rect = 0
         #self.rect = self.get_rect(self.status)
         pass
+    
+    def DDDH(self, w, A, width, height, offset = [0, 0]):
+        self.w_x = w[0]
+        self.w_y = w[1]
+        a_x = A[0]
+        a_y = A[1]
+        if self.time == 54:
+            self.time = 0
+        offset_x = a_x * math.cos(self.w_x * self.time + math.pi/2)
+        offset_y = a_y * math.cos(self.w_y * self.time)
+        hit_box = pygame.Rect([self.x + offset_x + offset[0], self.y + offset_y + offset[1], width, height])
+        self.time += 1
     
     def move(self, movement):
         self.collision = {'top': False, 'bottom': False, 'right': False, 'left': False}

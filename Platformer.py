@@ -400,29 +400,21 @@ while True:
             # # Trap_suspended ------------------------------------------------------------------------------------------------------------------ #
             elif obj[0].ID == 'trap_suspended':
                 obj[0].load_animation(display, obj[1], scroll)
-                if not start:
-                    obj[0].w_x = 0.117
-                    obj[0].w_y = 0.235
-                    offset_x = 0
-                    offset_y = 0
+                obj[0].w_x = 0.117
+                obj[0].w_y = 0.235
+                if obj[0].time == 54:
                     obj[0].time = 0
-                    start = True
-                    t_x = obj[0].x + 37
-                    t_y = obj[0].y + 15
-                else:
-                    if obj[0].time == 54:
-                        obj[0].time = 0
-                    t_x = obj[0].x + offset_x + 37
-                    t_y = obj[0].y + offset_y + 15
                 offset_x = 39 * math.cos(obj[0].w_x * obj[0].time + math.pi/2)
                 offset_y = 8 * math.cos(obj[0].w_y * obj[0].time)
+                t_x = obj[0].x + offset_x + 37
+                t_y = obj[0].y + offset_y + 15
                 obj[0].time += 1
                 #print(f"x: {offset_x} | y: {offset_y}")
                 trap_suspended_rect = pygame.Rect(t_x, t_y, 13, 20)
                 if player.rect.colliderect(trap_suspended_rect):
                     hit_player = True
                     hit_sparkle = True
-                #pygame.draw.rect(display, [0,255,0],[trap_suspended_rect.x - scroll[0], trap_suspended_rect.y - scroll[1], trap_suspended_rect.width, trap_suspended_rect.height], 1)
+                pygame.draw.rect(display, [0,255,0],[trap_suspended_rect.x - scroll[0], trap_suspended_rect.y - scroll[1], trap_suspended_rect.width, trap_suspended_rect.height], 1)
                     
                 # pass
             
@@ -494,7 +486,7 @@ while True:
                 hit_sparkle = False
         
         #pygame.draw.rect(display, [255,255,0], [strange_door_rect.x - scroll[0], strange_door_rect.y - scroll[1], strange_door_rect.width, strange_door_rect.height], 2)
-        #pygame.draw.rect(display, [255,0,0], [obj_rect.x - scroll[0], obj_rect.y - scroll[1], obj_rect.width, obj_rect.height], 1)
+        pygame.draw.rect(display, [255,0,0], [obj_rect.x - scroll[0], obj_rect.y - scroll[1], obj_rect.width, obj_rect.height], 1)
     get = True
     # Coin system ------------------------------------------------------------------------------------------------------------------ #
     for coin_o in COIN:
