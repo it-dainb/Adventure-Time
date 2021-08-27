@@ -309,7 +309,7 @@ class object(object):
         hit_box = pygame.Rect([self.x + offset_x + offset[0], self.y + offset_y + offset[1], width, height])
         self.time += 1
     
-    def move(self, movement):
+    def move(self, movement):#, surface, scroll):
         self.collision = {'top': False, 'bottom': False, 'right': False, 'left': False}
         self.rect =self.get_rect(self.status)
         
@@ -319,8 +319,10 @@ class object(object):
         for tile in hit_list:
             if movement[0] > 0:
                 self.collision['right'] = True
+                #pygame.draw.rect(surface, [255,0,0], [tile.x - scroll[0], tile.y - scroll[1], tile.width, tile.height])
                 self.rect.right = tile.left
             elif movement[0] < 0:
+                #pygame.draw.rect(surface, [255,0,0], [tile.x - scroll[0], tile.y - scroll[1], tile.width, tile.height])
                 self.collision['left'] = True
                 self.rect.left = tile.right
         self.x = self.rect.x
@@ -330,9 +332,11 @@ class object(object):
         hit_list = collide_test(self.rect, tile_rects)
         for tile in hit_list:
             if movement[1] >= 0:
+                #pygame.draw.rect(surface, [255,0,0], [tile.x - scroll[0], tile.y - scroll[1], tile.width, tile.height])
                 self.collision['bottom'] = True
                 self.rect.bottom = tile.top
             elif movement[1] < 0:
+                #pygame.draw.rect(surface, [255,0,0], [tile.x - scroll[0], tile.y - scroll[1], tile.width, tile.height])
                 self.collision['top'] = True
                 self.rect.top = tile.bottom
         self.y = self.rect.y
@@ -434,7 +438,9 @@ class entity(object):
         self.movement = [0, 0]
         self.y_momentum = 0
         self.attack_timer = 0
+        self.check = 0
     
+
     def vision_area(self):
         vis_x = self.x - 5 * IMG_SIZE[0]
         vis_y = self.y - IMG_SIZE[1] * 2
@@ -536,6 +542,83 @@ class entity(object):
                 self.collision['top'] = True
                 self.rect.top = tile.bottom
         self.y = self.rect.y
+
+class projectile(object):
+    
+    def __init__(self):
+        self.x = 0
+        self.y = 0
+        self.check = 0
+        
+    def throw(self, player, entity):
+        land = False            
+        if player[0] < entity.x or player[0] > entity.x + entity.rect.width:
+            if player[1] > entity.y:
+                h = - 2
+                if entity.flip:
+                    offset = entity.x
+                    d_x = abs(player[0] + player[2] - entity.x - entity.rect.width)
+                    d_y = abs( player[1] + player[3] - entity.y)
+                else:
+                    offset = entity.x + entity.rect.width
+                    d_x = abs(player[0] - entity.x - entity.rect.width)
+                    d_y = abs( player[1] + player[3] - entity.y)
+            elif player[1] == entity.y:
+                h = player[1] - entity.y - 40
+                if entity.flip:
+                    offset = entity.x
+                    d_x = abs(player[0] + player[2] - entity.x - entity.rect.width)
+                    d_y = abs( player[1] + player[3] - entity.y)
+                else:
+                    offset = entity.x + entity.rect.width
+                    d_x = abs(player[0] - entity.x - entity.rect.width)
+                    d_y = abs( player[1] + player[3] - entity.y)
+            else:
+                h = player[1] - entity.y - 40
+                if entity.flip:
+                    offset = entity.x
+                    d_x = abs(player[0] - entity.x - entity.rect.width)
+                    d_y = abs( player[1] + player[3] - entity.y)
+                else:
+                    offset = entity.x + entity.rect.width
+                    d_x = abs(player[0] + player[2] - entity.x - entity.rect.width)
+                    d_y = abs( player[1] + player[3] - entity.y)
+            s_d = math.sqrt(d_x ** 2 - (d_x ** 2 * d_y) / h)
+            b_1 = ((- d_x + s_d) * h * 2) / ( - d_x ** 2)
+            b_2 = ((- d_x - s_d) * h * 2) / ( - d_x ** 2)
+            
+            if b_1 < 0:
+                b = b_1
+            else:
+                b = b_2
+            
+            if self.check == 0:
+                self.x = offset
+                self.check = 1
+            else:
+                if entity.flip:
+                    self.x -= 5
+                else:
+                    self.x += 5
+                    # if self.x > offset - d_x:
+                        # self.x -= 5
+                    # else:
+                        # land = True
+                # else:
+                    # if self.x < d_x + offset:
+                        # self.x += 5
+                    # else:
+                        # land = True
+            a = (- b ** 2) / (4 * h)
+            self.y = a * abs((self.x - offset)) ** 2 + b * abs((self.x - offset)) + entity.y
+        else:
+            land = True
+
+        return self.x, self.y, land
+
+
+
+
 
 # obj = object('coin', [0, 0], [0, 0])
 # obj.create_database()

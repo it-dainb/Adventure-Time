@@ -221,6 +221,7 @@ while True:
                     game_map['air'][target_chunk] = generate_chunk(target_x, target_y)
                 for data in game_map['air'][target_chunk]:
                     data_rect = pygame.Rect([data[0] * IMG_SIZE[0] - camera[0], data[1] * IMG_SIZE[0] - camera[1], IMG_SIZE[0], IMG_SIZE[0]])
+                    #pygame.draw.rect(display, [255,255,255], data_rect, 0.5)
                     blocks.append(data_rect)
     
     # Place block ------------------------------------------------------------------------------------------------------------------ #
@@ -388,7 +389,7 @@ while True:
     # Export map ------------------------------------------------------------------------------------------------------------------ #
     if export:
         game_map.pop('air')
-        name = input('Save name:')
+        name = input('Save name: ')
         with open('data/map/' + name + '.json', 'w') as file:
             json.dump(game_map, file)
         print('SAVED !!!!')
