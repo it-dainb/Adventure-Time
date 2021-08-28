@@ -24,6 +24,8 @@ display = pygame.Surface([640 / 2, 360 /2 ])#[WINDOWN_SIZE[0]/SCALE, WINDOWN_SIZ
 animation = e.animation()
 animation.create_database()
 database = e.create_database() # ID: [img_loaded, img_name, type] type can be obj, tile, entity
+for k in database:
+    print(k, database[k][1])
 
 # LOAD TILES ------------------------------------------------------------------------------------------------------------------ #
 tile_index = e.load_tiles()
@@ -31,7 +33,7 @@ bug = False
 
 # GAME MAP ------------------------------------------------------------------------------------------------------------------ #
 game_map = {}
-game_map = e.load_map('bomb')
+game_map = e.load_map('rock')#input('LOAD MAP: '))
 CHUNK_SIZE = 8
 IMG_SIZE = [16, 16]
 
@@ -57,6 +59,8 @@ check = True
 ENTITY = []
 OBJECT = []
 COIN = []
+STONE = []
+stone_rects = []
 PROJECTILE = {}
 strange_door_ex = False
 
@@ -69,14 +73,16 @@ for type_ in game_map:
                 ENTITY.append(e.entity(data[2], data[0]))
     elif type_ == 'object':
         for data in game_map[type_]:
-            if data[1] == 82:
+            if data[1] == 79:
                 OBJECT.append([e.object(data[2], data[0]), 'closed'])
                 strange_door_rect = pygame.Rect(OBJECT[-1][0].get_rect('closed'))
                 strange_door_ex = True
-            elif data[1] == 65:
+            elif data[1] == 62:
                 OBJECT.append([e.object(data[2], data[0]), 'on_ground'])
-            elif data[1] == 67:
+            elif data[1] == 64:
                 COIN.append([e.object(data[2], data[0]), 'idle'])
+            elif data[1] == 78:
+                STONE.append([e.object(data[2], data[0]), 'idle'])
             else:
                 OBJECT.append([e.object(data[2], data[0]), 'idle'])
                 
@@ -85,11 +91,16 @@ for type_ in game_map:
 
 EFFECT = [] # [object, duration]
 hit_sparkle = False
+hit_sparkle_bomb = False
 hit_player = False
 
+# Player, entity var ------------------------------------------------------------------------------------------------------------------ #
 vel = 3
-entity_vel = 2
+vel_push = 1
+entity_vel = 1
 jump_power = 5.1
+push = False
+push_check = 0
 
 
 coin = 0
@@ -134,7 +145,6 @@ while True:
     e.map_render(display, scroll)
 
     # Move momentum ------------------------------------------------------------------------------------------------------------------ #
-
     gravity = 0.5
     ground = 1.5
     
@@ -147,18 +157,33 @@ while True:
         if entity.y_momentum > 10:
             entity.y_momentum = 10
     
+    for obj in STONE:
+        if obj[0].ID == 'stone':
+            obj[0].movement = [0, 0]
+            obj[0].movement[1] += obj[0].y_momentum
+            obj[0].y_momentum = round(obj[0].y_momentum + gravity, 1)
+        if obj[0].y_momentum > 10:
+            obj[0].y_momentum = 10
+    
+    # Player move ------------------------------------------------------------------------------------------------------------------ #
     player.movement = [0, 0]
         
-    if moving_right:
-        if player.status != 'run':
-            player.movement[0] += vel - 1
-        else:
-            player.movement[0] += vel
-    if moving_left:
-        if player.status != 'run':
-            player.movement[0] -= vel - 1
-        else:
-            player.movement[0] -= vel
+    if not push:
+        if moving_right:
+            if player.status != 'run':
+                player.movement[0] += vel - 1
+            else:
+                player.movement[0] += vel
+        if moving_left:
+            if player.status != 'run':
+                player.movement[0] -= vel - 1
+            else:
+                player.movement[0] -= vel
+    else:
+        if moving_right:
+            player.movement[0] += vel_push
+        if moving_left:
+            player.movement[0] -= vel_push
     
     player.movement[1] += player.y_momentum
     player.y_momentum = round(player.y_momentum + gravity, 1) # GRAVITY :))))
@@ -177,20 +202,24 @@ while True:
     if not hit_player:
         if not player.attack:
             #print(player_movement[1], ground)
-            if player.movement[0] != 0 and player.movement[1] == 0:
-                player.change_action('run')
-            if player.movement[0] == 0 and player.movement[1] == 0:
-                player.change_action('idle')
-            if player.movement[1] < 0 and jump_count < 2:
-                player.change_action('jump_up')
-            if player.movement[1] > ground and ( jump_count == 18 or jump_count == 1) or player.movement[1] > ground or player.collision['top']:
-                player.change_action('jump_down')
-            if 18 > jump_count >= 2:
-                if player.collision['top']:
-                    check = False
-                if check:
-                    player.change_action('jump_double')
-                    jump_count += 1
+            if not push:
+                player.offset = [0, 0]
+                if player.movement[0] != 0 and player.movement[1] == 0:
+                    player.change_action('run')
+                if player.movement[0] == 0 and player.movement[1] == 0:
+                    player.change_action('idle')
+                if player.movement[1] < 0 and jump_count < 2:
+                    player.change_action('jump_up')
+                if player.movement[1] > ground and ( jump_count == 18 or jump_count == 1) or player.movement[1] > ground or player.collision['top']:
+                    player.change_action('jump_down')
+                if 18 > jump_count >= 2:
+                    if player.collision['top']:
+                        check = False
+                    if check:
+                        player.change_action('jump_double')
+                        jump_count += 1
+            else:
+                player.change_action('pushing_foward')
 
     if player.movement[1] == 0:
         if player.collision['bottom']:
@@ -204,7 +233,7 @@ while True:
         # if player.attack:
             # pygame.draw.rect(display, [255,0,255], [attack_rect.x + 50, attack_rect.y - 9999, attack_rect.width, attack_rect.height], 1)
     
-    # pygame.draw.rect(display, [255,255,255], [player.rect.x + 50, player.rect.y - 9999, player.rect.width, player.rect.height])
+    #pygame.draw.rect(display, [255,255,255], [player.rect.x - scroll[0], player.rect.y - scroll[1], player.rect.width, player.rect.height], 1)
     # pygame.draw.rect(display, [255,0,255], [player.x + 50, player.y - 9999, player.rect.width, player.rect.height], 1)
 
     # Flash skill ------------------------------------------------------------------------------------------------------------------ #
@@ -220,25 +249,26 @@ while True:
                                 player.rect.left = strange_door_rect.right
                             if strange_door_rect.x <= player.x + player.img.get_width() <= strange_door_rect.x + strange_door_rect.width and  strange_door_rect.y >= player.y:
                                 player.rect.bottom = strange_door_rect.top
-                    else:
-                        player.move([-2, 0])
+                            player.move([0, 5], stone_rects)
+                        else:
+                            player.move([-2, 0], stone_rects)
                 else:
                     if strange_door_ex:
                         if player.rect.colliderect(strange_door_rect):
+                            #pygame.draw.rect(display, [255,255,255], [strange_door_rect.x - scroll[0], strange_door_rect.y-scroll[1], strange_door_rect.width, strange_door_rect.height])
                             if player.movement[0] > 0:
                                 player.rect.right = strange_door_rect.left
                             if player.movement[0] < 0:
                                 player.rect.left = strange_door_rect.right
                             if strange_door_rect.x <= player.x + player.img.get_width() <= strange_door_rect.x + strange_door_rect.width and  strange_door_rect.y >= player.y:
                                 player.rect.bottom = strange_door_rect.top
-                    else:
-                        player.move([ 2, 0])
+                            player.move([0, 5], stone_rects)
+                        else:
+                            player.move([ 2, 0], stone_rects)
                 if i % 10 == 0:
                     player.load_animation(display, 'hit', scroll)
                 #pygame.display.update()
             flash_start = time.time()
-            
-    
     
     # Create effect ------------------------------------------------------------------------------------------------------------------ #
     if prev_status != 'jump_up' and now_status == 'jump_up' or ( prev_status == 'jump_up' and now_status == 'jump_double'):
@@ -246,9 +276,8 @@ while True:
     if prev_status == 'jump_down' and now_status != 'jump_down':
         EFFECT.append([e.object('herochar_after_jump_dust', [player.rect.x, player.rect.y]), 8])
     
-
     # Move Player ------------------------------------------------------------------------------------------------------------------ #
-    player.move(player.movement)
+    player.move(player.movement, stone_rects)
     if player.collision['bottom']:
         player.y_momentum = 0
         air_timer = 0
@@ -265,6 +294,65 @@ while True:
     if display_render.colliderect(text_rect):
         e.text_draw(display, text[0], text[1], text_pos, scroll)
     
+    push_check = 0
+    # STONE ------------------------------------------------------------------------------------------------------------------ #
+    stone_rects = []
+    for rect in e.tile_rects:
+        stone_rects.append(rect)
+    
+    for stone in STONE:
+        stone[0].status = stone[1]
+        obj_rect = stone[0].get_rect(stone[0].status)
+        obj_rect = pygame.Rect([obj_rect.x, obj_rect.y, obj_rect.width, obj_rect.height])
+        stone_rects.append(obj_rect)
+    
+    # Push stone ------------------------------------------------------------------------------------------------------------------ #
+    for stone in STONE:
+        
+        stone[0].status = stone[1]
+        obj_rect = stone[0].get_rect(stone[0].status)
+        obj_rect = pygame.Rect([obj_rect.x, obj_rect.y, obj_rect.width , obj_rect.height])
+        push_rect = pygame.Rect([obj_rect.x - 1, obj_rect.y + 4, obj_rect.width + 2, obj_rect.height - 8])
+        obj = stone[0]
+        
+        if obj_rect in stone_rects:
+            stone_rects.remove(obj_rect)
+        
+        obj.rect, obj.collision = e.move(obj_rect, obj.movement, stone_rects)
+        obj.x, obj.y = obj.rect.x, obj.rect.y
+
+        #pygame.draw.rect(display, [255,0,0], [obj_rect.x - scroll[0], obj_rect.y - scroll[1], obj_rect.width, obj_rect.height], 1)
+        #pygame.draw.rect(display, [255,0,0], [push_rect.x - scroll[0], push_rect.y - scroll[1], push_rect.width, push_rect.height], 1)
+
+        if player.rect.colliderect(push_rect):
+            if moving_right:
+                obj.movement[0] += vel_push
+                obj.rect, obj.collision = e.move(obj_rect, obj.movement, stone_rects)
+                obj.x, obj.y = obj.rect.x, obj.rect.y
+                player.offset[0] = 2
+                player.rect.right = obj_rect.left
+            elif moving_left:
+                obj.movement[0] -= vel_push
+                obj.rect, obj.collision = e.move(obj_rect, obj.movement, stone_rects)
+                obj.x, obj.y = obj.rect.x, obj.rect.y
+                player.offset[0] = -2
+                player.rect.left = obj_rect.right
+            if player.movement[1] < 0:
+                push_check += 1
+            if player.movement[0] == 0:
+                push_check += 1
+        else:
+            push_check += 1
+
+        obj.load_animation(display, obj.status, scroll)
+        stone_rects.append(obj_rect)
+    
+    # Check Push ------------------------------------------------------------------------------------------------------------------ #
+    if push_check == len(STONE):
+        push = False
+    else:
+        push = True
+    
     # Object system ------------------------------------------------------------------------------------------------------------------ #
     for obj in OBJECT:
         if not get:
@@ -272,7 +360,10 @@ while True:
             obj[0].status = obj[1]
         else:
             obj_rect = obj[0].get_rect(obj[0].status)
-        if display_render.colliderect(obj_rect):
+
+        if obj[0].ID == 'waterfall' or obj[0].ID == 'waterfall_bottom':
+            obj[0].load_animation(display, obj[0].status, scroll)            
+        if display_render.colliderect(obj_rect) and obj[0].ID != 'waterfall' and obj[0].ID != 'waterfall_bottom':
             
             # Buttom ------------------------------------------------------------------------------------------------------------------ #
             if obj[0].ID == 'buttom':
@@ -343,11 +434,8 @@ while True:
                     saved = True
                     saving = True
                 if saving:
-                    if not obj[0].one_time('saving'):
-                        obj[0].load_animation(display, 'saving', scroll)
+                    obj[0].load_animation(display, 'saving', scroll)
                         # Still dev
-                    else:
-                        saving = False
                 else:
                     obj[0].load_animation(display, 'idle', scroll)
             
@@ -416,7 +504,7 @@ while True:
                 if player.rect.colliderect(trap_suspended_rect):
                     hit_player = True
                     hit_sparkle = True
-                pygame.draw.rect(display, [0,255,0],[trap_suspended_rect.x - scroll[0], trap_suspended_rect.y - scroll[1], trap_suspended_rect.width, trap_suspended_rect.height], 1)
+                #pygame.draw.rect(display, [0,255,0],[trap_suspended_rect.x - scroll[0], trap_suspended_rect.y - scroll[1], trap_suspended_rect.width, trap_suspended_rect.height], 1)
                     
                 # pass
             
@@ -429,27 +517,43 @@ while True:
                         obj[0].attack = 1
                         bomb_area = obj[0].attack_area([16, 16])
                         EFFECT.append([e.object('explosion', [obj[0].x - 13, obj[0].y - 24]), 30])
-                        pygame.draw.rect(display, [255,255,0], [bomb_area.x - scroll[0], bomb_area.y - scroll[1], bomb_area.width, bomb_area.height], 1)
+                        #pygame.draw.rect(display, [255,255,0], [bomb_area.x - scroll[0], bomb_area.y - scroll[1], bomb_area.width, bomb_area.height], 1)
                     # pass
             
+            # Trap_spike ------------------------------------------------------------------------------------------------------------------ #
+            elif obj[0].ID == 'trap_spike':
+                if player.rect.colliderect(obj_rect):
+                    if obj[0].attack == 0:
+                        hit_player = True
+                        hit_sparkle = True
+                    obj[0].attack = 1
+                if obj[0].attack == 1:
+                    if not obj[0].one_time('attack'):
+                        obj[0].load_animation(display, 'attack', scroll)
+                    else:
+                        obj[0].attack = 0
+                if obj[0].attack == 0:
+                    obj[0].load_animation(display, 'idle', scroll)
             # Another stuff ------------------------------------------------------------------------------------------------------------------ #
             else:
                 obj[0].load_animation(display, obj[1], scroll)
         
         # Player can pass strange door ------------------------------------------------------------------------------------------------------------------ #
-        if obj[0].ID == 'strange_door_rect':
+        if obj[0].ID == 'strange_door':
             if player.rect.colliderect(strange_door_rect):
                 if player.movement[0] > 0:
                     player.rect.right = strange_door_rect.left
+                    player.move([0, 5], stone_rects)
                 if player.movement[0] < 0:
                     player.rect.left = strange_door_rect.right
+                    player.move([0, 5], stone_rects)
                 if strange_door_rect.x <= player.x + player.img.get_width() <= strange_door_rect.x + strange_door_rect.width and  strange_door_rect.y >= player.y:
                     player.rect.bottom = strange_door_rect.top
 
         # Bomb hit player ------------------------------------------------------------------------------------------------------------------ #
         if obj[0].ID == 'bomb':
             if obj[0].attack == 1:
-                pygame.draw.rect(display, [255,255,0], [bomb_area.x - scroll[0], bomb_area.y - scroll[1], bomb_area.width, bomb_area.height], 1)
+                #pygame.draw.rect(display, [255,255,0], [bomb_area.x - scroll[0], bomb_area.y - scroll[1], bomb_area.width, bomb_area.height], 1)
                 if player.rect.colliderect(bomb_area):
                     hit_sparkle = True
                     hit_player = True
@@ -464,19 +568,17 @@ while True:
             if hit_sparkle:
                 if obj[0].ID == 'bomb':
                     if player.x >= obj[0].rect.x + obj[0].rect.width / 2:
-                        print('true')
-                        player.move([ 20, 0])
+                        player.move([ 20, 0], stone_rects)
                     else:
-                        print('false')
-                        player.move([ - 20, 0])
+                        player.move([ - 20, 0], stone_rects)
                 elif obj[0].ID == 'spikes_trap':
                     player.move([0, 10])
                 elif obj[0].ID == 'trap_suspended':
                     #print(player.x ,trap_suspended_rect.x + trap_suspended_rect.width)
                     if player.x >= trap_suspended_rect.x: #+ trap_suspended_rect.width:
-                        player.move([20, 0])
+                        player.move([20, 0], stone_rects)
                     else:
-                        player.move([-20, 0])
+                        player.move([-20, 0], stone_rects)
                     
                 # else:
                     # if not entity.flip:
@@ -487,7 +589,7 @@ while True:
                 hit_sparkle = False
         
         #pygame.draw.rect(display, [255,255,0], [strange_door_rect.x - scroll[0], strange_door_rect.y - scroll[1], strange_door_rect.width, strange_door_rect.height], 2)
-        pygame.draw.rect(display, [255,0,0], [obj_rect.x - scroll[0], obj_rect.y - scroll[1], obj_rect.width, obj_rect.height], 1)
+        #pygame.draw.rect(display, [255,0,0], [obj_rect.x - scroll[0], obj_rect.y - scroll[1], obj_rect.width, obj_rect.height], 1)
     get = True
     # Coin system ------------------------------------------------------------------------------------------------------------------ #
     for coin_o in COIN:
@@ -508,7 +610,72 @@ while True:
 
     # Entity system ------------------------------------------------------------------------------------------------------------------ #
     for entity in ENTITY:
+        if entity.ID == 'bomber_goblin':
+            if entity.check > 0:
+                entity.check += 1
+            if entity.check == 50:
+                entity.check = 0
+            if PROJECTILE == {}:
+                PROJECTILE[entity] = [[player.x, player.y, player.rect.width, player.rect.height], 1, 0]
+            if entity not in PROJECTILE:
+                PROJECTILE[entity] = [[player.x, player.y, player.rect.width, player.rect.height], 1, 0]
+            
+            # Thrown bomb ------------------------------------------------------------------------------------------------------------------ #
+            if PROJECTILE[entity][1] != 0 and PROJECTILE[entity][1] != 1:
+                x, y, land = PROJECTILE[entity][1].throw(PROJECTILE[entity][0], entity)
+                if PROJECTILE[entity][-1] == 0:
+                    PROJECTILE[entity].append(e.object('bomb', [x, y]))
+                else:
+                    bomb = PROJECTILE[entity][-1]
+                    if bomb.collision['bottom']:
+                        land = True
+                    if bomb.attack == 0:
+                        bomb.load_animation(display, 'thrown', scroll)
+                        bomb.attack = 1
+                    else:
+                        if bomb.attack == 1:
+                            if land:
+                                if not bomb.one_time('on_ground'):
+                                    bomb.load_animation(display, 'on_ground', scroll)
+                                else:
+                                    PROJECTILE[entity] = [[player.x, player.y, player.rect.width, player.rect.height], 1, 0]
+                                    bomb_area = bomb.attack_area([16, 16])
+                                    EFFECT.append([e.object('explosion', [bomb.x - 13, bomb.y - 24]), 30])
+                                    #pygame.draw.rect(display, [255,255,0], [bomb_area.x - scroll[0], bomb_area.y - scroll[1], bomb_area.width, bomb_area.height], 1)
+                                    
+                                    if player.rect.colliderect(bomb_area):
+                                        hit_sparkle_bomb = True
+                                        hit_player = True
+                            elif bomb.get_rect(bomb.status).colliderect(player.rect):
+                                PROJECTILE[entity] = [[player.x, player.y, player.rect.width, player.rect.height], 1, 0]
+                                bomb_area = bomb.attack_area([16, 16])
+                                EFFECT.append([e.object('explosion', [bomb.x - 13, bomb.y - 24]), 30])
+                                #pygame.draw.rect(display, [255,255,0], [bomb_area.x - scroll[0], bomb_area.y - scroll[1], bomb_area.width, bomb_area.height], 1)
+                                if player.rect.colliderect(bomb_area):
+                                    hit_sparkle_bomb = True
+                                    hit_player = True
+                            
+                            else:
+                                if bomb.collision['left'] or bomb.collision['right']:
+                                    bomb.time = 1
+                                if bomb.collision['top']:
+                                    bomb.time = 2
+                                if bomb.time == 0:
+                                    #print('true')
+                                    bomb.move([x - bomb.x, y - bomb.y])#, display, scroll)
+                                else:
+                                    if bomb.time == 2:
+                                        bomb.move([0, 4])#, display, scroll)
+                                    else:
+                                        bomb.move([0, y - bomb.y])#, display, scroll)
+                            
+                                bomb.load_animation(display, 'thrown', scroll)
+                            
+                    if bomb.y > player.y + IMG_SIZE[0]*3:
+                        PROJECTILE[entity] = [[player.x, player.y, player.rect.width, player.rect.height], 1, 0]
+            
         if entity.rect.colliderect(display_render):
+            
             # Entity action ------------------------------------------------------------------------------------------------------------------ #
             if entity.collision['bottom']:
                 entity.y_momentum = 0
@@ -516,10 +683,18 @@ while True:
                 entity.y_momentum = 0
             
             # Logic enemy ------------------------------------------------------------------------------------------------------------------ #
-            attack_area = entity.attack_area(2)
-            vision_area = entity.vision_area()
-            pygame.draw.rect(display, [255,0,0], [vision_area.x - scroll[0], vision_area.y - scroll[1], vision_area.width, vision_area.height], 1)
-            pygame.draw.rect(display, [255,255,0], [attack_area.x - scroll[0], attack_area.y - scroll[1], attack_area.width, attack_area.height], 1)
+            if entity.ID != 'bomber_goblin':
+                attack_area = entity.area(0.5, 0)
+                vision_area = entity.area(5, 2)
+            else:
+                attack_area = entity.area(5, 3, True)
+                vision_area = entity.area(7, 3, True)
+            if entity.ID == 'mushroom' or entity.ID == 'slime':
+                attack_area = entity.area(0, 0)
+                vision_area = entity.area(5, 2)    
+                
+            #pygame.draw.rect(display, [255,0,0], [vision_area.x - scroll[0], vision_area.y - scroll[1], vision_area.width, vision_area.height], 1)
+            #pygame.draw.rect(display, [255,255,0], [attack_area.x - scroll[0], attack_area.y - scroll[1], attack_area.width, attack_area.height], 1)
             
             # Pause animation when attacked by player ------------------------------------------------------------------------------------------------------------------ #
             if player.attack and (attack_rect.colliderect(entity.rect)  or player.rect.colliderect(entity.rect)):
@@ -537,104 +712,72 @@ while True:
             else:
                 if entity.ID != 'slime':
                     entity.offset = [0, 0]
-                if player.rect.colliderect(vision_area) and entity.ID != 'bomber_goblin':
-                    
-                    # Attack Player ------------------------------------------------------------------------------------------------------------------ #
-                    if player.rect.colliderect(attack_area) and entity.attack_timer > 15 and not flash:
-                        print('true')
-                        entity.attack = True
-                        entity.attack_timer = 0
-                        hit_sparkle = True
-                        hit_player = True
-                        if player.x + player.rect.width / 2>= entity.x + attack_area.width / 2:
-                            entity.flip = False
+                if player.rect.colliderect(vision_area): 
+                    if entity.ID != 'bomber_goblin':
+                        
+                        # Attack Player ------------------------------------------------------------------------------------------------------------------ #
+                        if player.rect.colliderect(attack_area) and entity.attack_timer > 15 and not flash and entity.ID != 'worm':
+                            entity.attack = True
+                            entity.attack_timer = 0
+                            hit_sparkle = True
+                            hit_player = True
+                            if player.x + player.rect.width / 2>= entity.x + attack_area.width / 2:
+                                entity.flip = False
+                            else:
+                                entity.flip = True
                         else:
-                            entity.flip = True
-                        pass
+                            if player.x < entity.x:
+                                entity.movement[0] = -1
+                                entity.flip = True
+                            elif player.x > entity.x:
+                                entity.movement[0] = 1
+                                entity.flip = False
                     else:
-                        if player.x < entity.x:
-                            entity.movement[0] = -2
-                            entity.flip = True
-                        elif player.x > entity.x:
-                            entity.movement[0] = 2
-                            entity.flip = False
+                        if not player.rect.colliderect(attack_area):
+                            
+                            # Move can fall ------------------------------------------------------------------------------------------------------------------ #
+                            if not entity.check_fall(stone_rects):#display, scroll):
+                                if player.x < entity.x:
+                                    entity.movement[0] = -1
+                                    entity.flip = True
+                                elif player.x > entity.x:
+                                    entity.movement[0] = 1
+                                    entity.flip = False
+                        else:
+                            
+                            # Throw bomb to player ------------------------------------------------------------------------------------------------------------------ #
+                            if player.x >= entity.x:
+                                entity.flip = False
+                            else:
+                                entity.flip = True
+                            if player.rect.colliderect(attack_area):
+                                # create bomb ------------------------------------------------------------------------------------------------------------------ #
+                                if PROJECTILE[entity][1] == 1 and entity.check == 0:
+                                    PROJECTILE[entity] = [[player.x, player.y, player.rect.width, player.rect.height], 0, 0]
+                                    entity.check += 1
+                                
                 else:
                     # Return ------------------------------------------------------------------------------------------------------------------ #
                     if entity.ID != 'slime':
-                        if entity.ID != 'bomber_goblin':
-                            if entity.flip:
-                                if entity.check_fall():
-                                    entity.movement[0] = - entity_vel
-                                    entity.flip = False
-                                elif not entity.collision['left']:
-                                    entity.movement[0] = - entity_vel
-                                else:
-                                    entity.flip = False
+                        if entity.flip:
+                            if entity.check_fall(stone_rects):#(display, scroll):
+                                entity.movement[0] = - entity_vel
+                                entity.flip = False
+                            elif not entity.collision['left']:
+                                entity.movement[0] = - entity_vel
                             else:
-                                if entity.check_fall():
-                                    entity.movement[0] = entity_vel
-                                    entity.flip = True
-                                elif not entity.collision['right']:
-                                    entity.movement[0] = entity_vel
-                                else:
-                                    entity.flip = True
-                    
-                    # Throw bomb to player ------------------------------------------------------------------------------------------------------------------ #
-                    if entity.ID == 'bomber_goblin':
-                        if player.x + player.rect.width / 2>= entity.x + attack_area.width / 2:
-                            entity.flip = False
+                                entity.flip = False
                         else:
-                            entity.flip = True     
-                            
-                        if PROJECTILE == {}:
-                            PROJECTILE[entity] = [[player.x, player.y, player.rect.width, player.rect.height], 0, 0]
-                        if entity not in PROJECTILE:
-                            PROJECTILE[entity] = [[player.x, player.y, player.rect.width, player.rect.height], 0, 0]
-                        
-                        if PROJECTILE[entity][1] != 0:
-                            x, y, land = PROJECTILE[entity][1].throw(PROJECTILE[entity][0], entity)
-                            if PROJECTILE[entity][-1] == 0:
-                                PROJECTILE[entity].append(e.object('bomb', [x, y]))
+                            if entity.check_fall(stone_rects):#(display, scroll):
+                                entity.movement[0] = entity_vel
+                                entity.flip = True
+                            elif not entity.collision['right']:
+                                entity.movement[0] = entity_vel
                             else:
-                                bomb = PROJECTILE[entity][-1]
-                                if bomb.collision['bottom']:
-                                    land = True
-                                if bomb.attack == 0:
-                                    bomb.load_animation(display, 'thrown', scroll)
-                                    bomb.attack = 1
-                                else:
-                                    if bomb.attack == 1:
-                                        if land:
-                                            if not bomb.one_time('on_ground'):
-                                                bomb.load_animation(display, 'on_ground', scroll)
-                                            else:
-                                                PROJECTILE[entity] = [[player.x, player.y, player.rect.width, player.rect.height], 0, 0]
-                                                bomb_area = bomb.attack_area([16, 16])
-                                                EFFECT.append([e.object('explosion', [bomb.x - 13, bomb.y - 24]), 30])
-                                                pygame.draw.rect(display, [255,255,0], [bomb_area.x - scroll[0], bomb_area.y - scroll[1], bomb_area.width, bomb_area.height], 1)
-                                                
-                                                if player.rect.colliderect(bomb_area):
-                                                    hit_sparkle_bomb = True
-                                                    hit_player = True
-                                        
-                                        else:
-                                            if bomb.collision['left'] or bomb.collision['right']:
-                                                bomb.time = 1
-                                            if bomb.time == 0:
-                                                #print('true')
-                                                bomb.move([x - bomb.x, y - bomb.y])#, display, scroll)
-                                            else:
-                                                bomb.move([0, y - bomb.y])#, display, scroll)
-                                        
-                                            bomb.load_animation(display, 'thrown', scroll)
-                                        
-                                if bomb.y > player.y * 2:
-                                    PROJECTILE[entity] = [[player.x, player.y, player.rect.width, player.rect.height], 0, 0]
-
-                    else:   
-                        #entity.offset = [0, -8]
+                                entity.flip = True
+                    else:
                         if not entity.flip:
-                            if entity.check_fall():
+                            if entity.check_fall(stone_rects):#(display, scroll):
                                 entity.movement[0] = - entity_vel
                                 entity.flip = True
                             elif not entity.collision['left']:
@@ -642,15 +785,16 @@ while True:
                             else:
                                 entity.flip = True
                         else:
-                            if entity.check_fall():
+                            if entity.check_fall(stone_rects):#(display, scroll):
                                 entity.movement[0] = entity_vel
                                 entity.flip = False
                             elif not entity.collision['right']:
                                 entity.movement[0] = entity_vel
                             else:
                                 entity.flip = False
+                    
 
-            entity.move(entity.movement)
+            entity.move(entity.movement, stone_rects)
            # pygame.draw.rect(display, [255,0,255], [player.x - scroll[0], player.y - scroll[1], 16, 16])
             
             # Entity move ------------------------------------------------------------------------------------------------------------------ #
@@ -677,9 +821,9 @@ while True:
                     entity.attack = False
                 if hit_sparkle:
                     if not player.flip:
-                        entity.move([ 10, 0])
+                        entity.move([ 10, 0], stone_rects)
                     else:
-                        entity.move([ -10, 0])
+                        entity.move([ -10, 0], stone_rects)
                     EFFECT.append([e.object('herochar_hit_sparkle', [entity.rect.x, entity.rect.y]), 8])
                     hit_sparkle = False
             
@@ -691,16 +835,16 @@ while True:
                     entity.attack = False
                 if hit_sparkle:
                     if not entity.flip:
-                        player.move([10, 0])
+                        player.move([10, 0], stone_rects)
                     else:
-                        player.move([ -10, 0])
+                        player.move([ -10, 0], stone_rects)
                     EFFECT.append([e.object('herochar_hit_sparkle', [player.rect.x, player.rect.y]), 8])
                     hit_sparkle = False
                 elif hit_sparkle_bomb:
                     if player.x >= bomb_area.x + bomb_area.width / 2:
-                        player.move([ 20, 0])
+                        player.move([ 20, 0], stone_rects)
                     else:
-                        player.move([ - 20, 0])
+                        player.move([ - 20, 0], stone_rects)
             
                     EFFECT.append([e.object('herochar_hit_sparkle', [player.rect.x, player.rect.y]), 8])
                     hit_sparkle_bomb = False
@@ -708,6 +852,7 @@ while True:
         # Entity load animation ------------------------------------------------------------------------------------------------------------------ #
         entity.load_animation(display, entity.status, scroll)
     
+    # Create bomb ------------------------------------------------------------------------------------------------------------------ #
     for pro in PROJECTILE:
         if PROJECTILE[pro][1] == 0:
             PROJECTILE[pro][1] = e.projectile()

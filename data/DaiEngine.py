@@ -135,12 +135,12 @@ def collide_test(rect, tiles):
             hit_list.append(tile)
     return hit_list
     
-def move(rect, movement):
+def move(rect, movement, tile_rect):
     collision_type = {'top': False, 'bottom': False, 'right': False, 'left': False}
     
     # Update location x ---------------------------------------------------------------------------------------------------- #
     rect.x += movement[0]
-    hit_list = collide_test(rect, tile_rects)
+    hit_list = collide_test(rect, tile_rect)
     for tile in hit_list:
         if movement[0] > 0:
             collision_type['right'] = True
@@ -151,7 +151,7 @@ def move(rect, movement):
             
     # Update location y ------------------------------------------------------------------------------------------------------------------ #
     rect.y += movement[1]
-    hit_list = collide_test(rect, tile_rects)
+    hit_list = collide_test(rect, tile_rect)
     for tile in hit_list:
         if movement[1] >= 0:
             collision_type['bottom'] = True
@@ -294,6 +294,9 @@ class object(object):
         self.w_y = 0
         self.DDDH = [0, 0]
         self.hit_rect = 0
+        self.movement = [0, 0]
+        self.y_momentum = 0
+        self.check = 0
         #self.rect = self.get_rect(self.status)
         pass
     
@@ -441,21 +444,33 @@ class entity(object):
         self.check = 0
     
 
-    def vision_area(self):
-        vis_x = self.x - 5 * IMG_SIZE[0]
-        vis_y = self.y - IMG_SIZE[1] * 2
-        vis_width = 5 * IMG_SIZE[0] * 2 + self.img.get_width()
-        vis_height = IMG_SIZE[1] * 2 + self.img.get_height()
-        vision_rect = pygame.Rect([vis_x, vis_y, vis_width, vis_height])
-        return vision_rect
+    def area(self, width, height, double_height = False):
+        vis_x = self.x - width * IMG_SIZE[0]
+        vis_y = self.y - IMG_SIZE[1] * height
+        vis_width = width * IMG_SIZE[0] * 2 + self.img.get_width()
+        if double_height:
+            vis_height = IMG_SIZE[1] * height * 2 + self.img.get_height()
+        else:
+            vis_height = IMG_SIZE[1] * height + self.img.get_height()
+        area_rect = pygame.Rect([vis_x, vis_y, vis_width, vis_height])
+        return area_rect
     
-    def attack_area(self, area):
-        atk_x = self.x - area
-        atk_y = self.y
-        atk_width = area * 2 + IMG_SIZE[0]
-        atk_height = IMG_SIZE[1]
-        attack_area = pygame.Rect([atk_x, atk_y, atk_width, atk_height])
-        return attack_area
+    # def attack_area(self, width, height, double_height = False):
+        # vis_x = self.x - width * IMG_SIZE[0]
+        # vis_y = self.y - IMG_SIZE[1] * height
+        # vis_width = width * IMG_SIZE[0] * 2 + self.img.get_width()
+        # if double_height:
+            # vis_height = IMG_SIZE[1] * height * 2 + self.img.get_height()
+        # else:
+            # vis_height = IMG_SIZE[1] * height + self.img.get_height()
+        # vision_rect = pygame.Rect([vis_x, vis_y, vis_width, vis_height])
+        # return vision_rect
+        # atk_x = self.x - area
+        # atk_y = self.y
+        # atk_width = area * 2 + IMG_SIZE[0]
+        # atk_height = IMG_SIZE[1]
+        # attack_area = pygame.Rect([atk_x, atk_y, atk_width, atk_height])
+        # return attack_area
     
     def change_action(self, status):
         if self.status != status:
@@ -498,7 +513,7 @@ class entity(object):
         self.frame += 1
         self.attack_timer += 1
     
-    def check_fall(self):
+    def check_fall(self, tile_rect):#, surface, scroll):
         fall = True
         if not self.flip:
             check_x = self.rect.x + self.img.get_width()
@@ -508,20 +523,20 @@ class entity(object):
             check_y = self.rect.y + self.img.get_height()
         
         check_rect = pygame.Rect(check_x, check_y, self.img.get_width(), self.img.get_height())
-        #pygame.draw.rect(surface, [255,0,255], [check_x - scroll[0], check_y - scroll[1], self.img.get_width(), self.img.get_height()])
-        for tile_check in tile_rects:
+       # pygame.draw.rect(surface, [255,0,255], [check_x - scroll[0], check_y - scroll[1], self.img.get_width(), self.img.get_height()])
+        for tile_check in tile_rect:
             if check_rect.colliderect(tile_check):
                 #pygame.draw.rect(surface, [255,255,0], [tile_check.x - scroll[0], tile_check.y - scroll[1], tile_check.width, tile_check.height], 2)
                 fall = False
         if fall:
             return True
 
-    def move(self, movement):
+    def move(self, movement, tile_rect):
         self.collision = {'top': False, 'bottom': False, 'right': False, 'left': False}
         
         # Update location x ---------------------------------------------------------------------------------------------------- #
         self.rect.x += movement[0]
-        hit_list = collide_test(self.rect, tile_rects)
+        hit_list = collide_test(self.rect, tile_rect)
         for tile in hit_list:
             if movement[0] > 0:
                 self.collision['right'] = True
@@ -533,7 +548,7 @@ class entity(object):
                 
         # Update location y ------------------------------------------------------------------------------------------------------------------ #
         self.rect.y += movement[1]
-        hit_list = collide_test(self.rect, tile_rects)
+        hit_list = collide_test(self.rect, tile_rect)
         for tile in hit_list:
             if movement[1] >= 0:
                 self.collision['bottom'] = True
@@ -554,7 +569,7 @@ class projectile(object):
         land = False            
         if player[0] < entity.x or player[0] > entity.x + entity.rect.width:
             if player[1] > entity.y:
-                h = - 2
+                h = - 6
                 if entity.flip:
                     offset = entity.x
                     d_x = abs(player[0] + player[2] - entity.x - entity.rect.width)
@@ -564,7 +579,7 @@ class projectile(object):
                     d_x = abs(player[0] - entity.x - entity.rect.width)
                     d_y = abs( player[1] + player[3] - entity.y)
             elif player[1] == entity.y:
-                h = player[1] - entity.y - 40
+                h = -6
                 if entity.flip:
                     offset = entity.x
                     d_x = abs(player[0] + player[2] - entity.x - entity.rect.width)
@@ -574,7 +589,7 @@ class projectile(object):
                     d_x = abs(player[0] - entity.x - entity.rect.width)
                     d_y = abs( player[1] + player[3] - entity.y)
             else:
-                h = player[1] - entity.y - 40
+                h = player[1] - entity.y - 6
                 if entity.flip:
                     offset = entity.x
                     d_x = abs(player[0] - entity.x - entity.rect.width)
@@ -597,18 +612,10 @@ class projectile(object):
                 self.check = 1
             else:
                 if entity.flip:
-                    self.x -= 5
+                    self.x -= d_x/20
                 else:
-                    self.x += 5
-                    # if self.x > offset - d_x:
-                        # self.x -= 5
-                    # else:
-                        # land = True
-                # else:
-                    # if self.x < d_x + offset:
-                        # self.x += 5
-                    # else:
-                        # land = True
+                    self.x += d_x/20
+                    
             a = (- b ** 2) / (4 * h)
             self.y = a * abs((self.x - offset)) ** 2 + b * abs((self.x - offset)) + entity.y
         else:
