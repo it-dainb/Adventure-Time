@@ -41,7 +41,7 @@ def game():
     
     # GAME MAP ------------------------------------------------------------------------------------------------------------------ #
     game_map = {}
-    game_map = e.load_map('check')#input('LOAD MAP: '))
+    game_map = e.load_map('test')#input('LOAD MAP: '))
     CHUNK_SIZE = 8
     IMG_SIZE = [16, 16]
 
@@ -126,8 +126,10 @@ def game():
     start = False
     
     # INVENTORY ------------------------------------------------------------------------------------------------------------------ #
-    INVENTORY = []
+    INVENTORY = {}
     num_select = 0
+    value_item = 0
+    use_item = False
     
     running = True
     # MAIN GAME -------------------------------------------------------------------------------------------------------------------------------#
@@ -377,7 +379,7 @@ def game():
                 obj[0].status = obj[1]
             else:
                 obj_rect = obj[0].get_rect(obj[0].status)
-
+            #pygame.draw.rect(display, [255,0,0], [obj_rect.x - scroll[0], obj_rect.y - scroll[1], obj_rect.width, obj_rect.height], 1)
             if obj[0].ID == 'waterfall' or obj[0].ID == 'waterfall_bottom':
                 obj[0].load_animation(display, obj[0].status, scroll)            
             if display_render.colliderect(obj_rect) and obj[0].ID != 'waterfall' and obj[0].ID != 'waterfall_bottom':
@@ -401,6 +403,20 @@ def game():
                     
                     obj[0].load_animation(display, obj[0].status, scroll)
 
+                # Items ------------------------------------------------------------------------------------------------------------------ #
+                elif obj[0].ID == 'antidote_potion' or obj[0].ID == 'apple_item' or obj[0].ID == 'health_potion' or obj[0].ID == 'meat_item':
+                    colli_rect = pygame.Rect([player.rect.x + 3, player.rect.y, player.rect.width - 6, player.rect.height])
+                    #pygame.draw.rect(display, [255,0,0], [colli_rect.x - scroll[0], colli_rect.y - scroll[1], colli_rect.width, colli_rect.height], 1)
+                   # pygame.draw.rect(display, [255,0,0], [obj_rect.x - scroll[0], obj_rect.y - scroll[1], obj_rect.width, obj_rect.height], 1)
+                    if colli_rect.colliderect(obj_rect):
+                        if obj[0].ID not in INVENTORY:
+                            INVENTORY[obj[0].ID] = 1
+                            obj[0].check = 1
+                        else:
+                            INVENTORY[obj[0].ID] += 1
+                            obj[0].check = 1
+                    obj[0].load_animation(display, obj[0].status, scroll)
+                    
                 # Lever ------------------------------------------------------------------------------------------------------------------ #
                 elif obj[0].ID == 'lever':
                     if player.attack:
@@ -654,6 +670,11 @@ def game():
                         else:
                             for _ in range(40):
                                 player.move([-1, 0], tile_rects)
+                        if player.y < trap_suspended_rect.y + trap_suspended_rect.height - 10:
+                            for _ in range(10):
+                                player.move([0, -1], tile_rects)
+                                
+                            
                         
                     # else:
                         # if not entity.flip:
@@ -969,7 +990,38 @@ def game():
         flash = False
         
         # Inventory ------------------------------------------------------------------------------------------------------------------ #
+        n = 0
+        remove_item = []
+        for item, value in INVENTORY.items():
+            if n == num_select:
+                img_item = pygame.image.load('data/items/' + item + '.png')
+                HUD.blit(img_item, [9, 5])
+                if use_item:
+                    INVENTORY[item] -= 1
+                    use_item = False
+                    if item == 'health_potion':
+                        health = 100
+                    elif item == 'meat_item':
+                        health += 50
+                    elif item == 'apple_item':
+                        health += 20
+                    else:
+                        pass
+                    
+                if INVENTORY[item] <= 0:
+                    remove_item.append(item)
+                value_item = value
+            if num_select > len(INVENTORY) - 1:
+                num_select -= 1
+            if n < len(INVENTORY):
+                n += 1
+            else:
+                n= 0
+        for item in remove_item:
+            INVENTORY.pop(item)
         
+        if INVENTORY == {} and use_item:
+            use_item = False
         
         # Update key ------------------------------------------------------------------------------------------------------------------ #
         for event in pygame.event.get():
@@ -997,12 +1049,24 @@ def game():
                         jump_count += 1
                 if event.key == K_f:
                     flash = True
+                if event.key == K_d:
+                    num_select += 1
+                    if num_select > len(INVENTORY) - 1:
+                        num_select = 0
+                if event.key == K_a:
+                    num_select -= 1
+                    if num_select < 0:
+                        num_select = len(INVENTORY) - 1
+                if event.key == K_s:
+                    use_item = True
             if event.type == KEYUP:
                 if event.key == K_RIGHT:
                     moving_right = False
                 if event.key == K_LEFT:
                     moving_left = False
         
+        
+        #print(num_select)
         surf = pygame.transform.scale(display, WINDOWN_SIZE)
         screen.blit(surf, [0, 0])
         
@@ -1013,6 +1077,8 @@ def game():
             player.rect.x, player.rect.y = check_point[-1][0], check_point[-1][1]
         
         #print(health)
+        if health > 100:
+            health = 100
         player.health = health
         player.life = life
         
@@ -1027,9 +1093,6 @@ def game():
         pygame.draw.rect(HUD, [208, 70, 72], health_rect)
         
         health_text = str(int(player.health)) + '/100'
-        
-
-        e.text_draw(HUD, '3', 2, [9, 16])
         
         # Life counter ------------------------------------------------------------------------------------------------------------------ #
         if player.life == 3:
@@ -1090,7 +1153,14 @@ def game():
             #health_sur = pygame.transform.scale(health_sur, [24, 4])
             screen.blit(health_sur, [(entity.x - 5 - scroll[0]) * SCALE + 14, (entity.y - 10 - scroll[1]) * SCALE + 8])
         
+        if INVENTORY != {}:
+            e.text_draw(screen, str(value_item), 4, [31 - (len(str(value_item)) - 1) * 8, 55])
         
+        for obj in OBJECT:
+            if obj[0].ID == 'antidote_potion' or 'apple_item' or 'health_potion' or 'meat_item':
+                if obj[0].check == 1:
+                    OBJECT.remove(obj)
+                    
         # Update game ------------------------------------------------------------------------------------------------------------------ #
         pygame.display.update()
         clock.tick(e.FPS)
