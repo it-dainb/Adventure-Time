@@ -8,11 +8,13 @@ from pygame.locals import *
 database = {} # ID: [img_loaded, img_name, type] type can be obj, tile, entity
 game_map = {'tile': {},
             'object': [],
-            'entity': []
+            'entity': [],
+            'variable': {}
                         }
 game_map_empty = {'tile': {},
                 'object': [],
-                'entity': []
+                'entity': [],
+                'variable': {}
                             }
 
 def generate_chunk(x, y): # Chunk = tile*tile | x, y is pos chunk
@@ -287,7 +289,7 @@ while True:
     block_rects = []
     if game_map != game_map_empty:
         for a in game_map:
-            if a != 'air':
+            if a != 'air' and a != 'variable':
                 if a == 'tile':
                     for b in game_map[a]:
                         for data in game_map[a][b]:
@@ -389,6 +391,7 @@ while True:
     # Export map ------------------------------------------------------------------------------------------------------------------ #
     if export:
         game_map.pop('air')
+        game_map['variable'] = {}
         name = input('Save name: ')
         with open('data/map/' + name + '.json', 'w') as file:
             json.dump(game_map, file)

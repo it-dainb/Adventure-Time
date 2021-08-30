@@ -442,6 +442,8 @@ class entity(object):
         self.y_momentum = 0
         self.attack_timer = 0
         self.check = 0
+        self.health = 100
+        self.life = 1
     
 
     def area(self, width, height, double_height = False):
@@ -623,8 +625,30 @@ class projectile(object):
 
         return self.x, self.y, land
 
-
-
+class HUD(object):
+    def __init__(self, ID):
+        self.ID = ID
+        self.frame = 0
+        self.offset = [0, 0]
+        self.flip = False
+        self.check = 0
+    
+    def load_animation(self, surface, pos, scroll, offset = [0, 0], draw = True):
+        self.offset = offset
+        ID = self.ID
+        if self.frame > len(animation_database[ID]) - 1:
+            self.frame = 0
+        entity_anim = animation()
+        entity_anim.load_animation(surface, ID, self.frame, [pos[0] + self.offset[0] - scroll[0], pos[1] + self.offset[1] - scroll[1]], self.flip)
+        self.frame += 1
+    
+    def one_time(self, offset = [0, 0]):
+        ID = self.ID
+        self.offset = offset
+        if self.frame == len(animation_database[ID]) - 1:
+            self.offset = [0, 0]
+            self.frame = 0
+            return True
 
 
 # obj = object('coin', [0, 0], [0, 0])
