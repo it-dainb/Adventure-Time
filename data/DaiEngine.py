@@ -8,7 +8,7 @@ from pygame.locals import *
 #  Setting enviroment ------------------------------------------------------------------------------------------------------------------ #
 FPS = 30
 
-img_FPS = 10
+img_FPS = 12
 FPS = FPS // img_FPS * img_FPS
 
 global IMG_SIZE
@@ -163,7 +163,7 @@ def move(rect, movement, tile_rect):
     return rect, collision_type
     
 # Text 2 image ------------------------------------------------------------------------------------------------------------------ #
-def text_draw(surface, text, size, pos, scroll = [0,0],draw = True,bug = False):
+def text_draw(surface, text, size, pos, scroll = [0,0],draw = True, camera = 0, bug = False):
     
     char_img = pygame.image.load('data/font/h.png')
     img_size = [char_img.get_width(), char_img.get_height()]
@@ -210,8 +210,23 @@ def text_draw(surface, text, size, pos, scroll = [0,0],draw = True,bug = False):
     display = [int(text_size[0] / 2 * size), int(text_size[1] / 2 * size)]
     n_surf = pygame.transform.scale(text_sur, display)
     text_rect = pygame.Rect([pos[0], pos[1], n_surf.get_width(), n_surf.get_height()])
-    surface.blit(n_surf, [pos[0] - scroll[0], pos[1] - scroll[1]])
+    if camera == 0:
+        surface.blit(n_surf, [pos[0] - scroll[0], pos[1] - scroll[1]])
+    else:
+        if camera.colliderect(text_rect):
+            surface.blit(n_surf, [pos[0] - scroll[0], pos[1] - scroll[1]])
     return text_rect
+
+# UI size ------------------------------------------------------------------------------------------------------------------ #
+def UI(img, surface, size, pos, draw = True):
+    img_rect = img.get_rect()
+    img_sur = pygame.Surface([img_rect.width, img_rect.height], pygame.SRCALPHA)
+    img_sur.blit(img, [0, 0])
+    sur = pygame.transform.scale(img_sur, [int(img_rect.width * size[0]), int(img_rect.height * size[1])])
+    if draw:
+        surface.blit(sur, pos)
+    img_rect = pygame.Rect([pos[0], pos[1], sur.get_width(), sur.get_height()])
+    return img_rect
 
 # Animation load ------------------------------------------------------------------------------------------------------------------ #
 animation_path = 'data/animation'
@@ -444,6 +459,7 @@ class entity(object):
         self.check = 0
         self.health = 100
         self.life = 1
+        self.hitbox = self.rect
     
 
     def area(self, width, height, double_height = False):
