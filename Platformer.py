@@ -9,7 +9,9 @@ import data.DaiEngine as e
 from pygame.locals import *
 
 # Setting enviromental ------------------------------------------------------------------------------------------------------------------ #
+pygame.mixer.init()
 pygame.init()
+pygame.mixer.set_num_channels(64)
 clock = pygame.time.Clock()
 
 pygame.display.set_caption("Adventure Time !!! Made by DAIOTAKU")
@@ -35,6 +37,46 @@ life = 3
 health = 100
 level = 0
 INVENTORY = {}
+
+# Sound for UI ------------------------------------------------------------------------------------------------------------------ #
+click_wav = pygame.mixer.Sound('data/music/click.ogg')
+
+# Sound for game ------------------------------------------------------------------------------------------------------------------ #
+grass_wav = [pygame.mixer.Sound('data/music/grass_0.wav'), pygame.mixer.Sound('data/music/grass_1.wav')]
+grass_wav[0].set_volume(0.1) 
+grass_wav[1].set_volume(0.1)
+coin_wav = pygame.mixer.Sound('data/music/coin.wav')
+jump_wav = pygame.mixer.Sound('data/music/jump.wav')
+jump_wav.set_volume(0.3)
+hit_wav = pygame.mixer.Sound('data/music/hit.wav')
+explosion_wav = pygame.mixer.Sound('data/music/explosion.wav')
+explosion_wav.set_volume(0.04)
+dash_wav = pygame.mixer.Sound('data/music/dash.flac')
+dash_wav.set_volume(0.4)
+attack_wav = pygame.mixer.Sound('data/music/sword.wav')
+attack_wav.set_volume(0.3)
+button_wav = pygame.mixer.Sound('data/music/button.wav')
+button_wav.set_volume(0.5)
+lever_wav = pygame.mixer.Sound('data/music/lever.wav')
+lever_wav.set_volume(0.5)
+strange_door_close = pygame.mixer.Sound('data/music/strange door close.wav')
+strange_door_open = pygame.mixer.Sound('data/music/strange door open.wav')
+strange_door_close.set_volume(0.3)
+strange_door_open.set_volume(0.3)
+push_wav = pygame.mixer.Sound('data/music/push.wav')
+push_wav.set_volume(0.2)
+fall_wav = pygame.mixer.Sound('data/music/fall.wav')
+fall_wav.set_volume(0.3)
+spawn_wav = pygame.mixer.Sound('data/music/spawn.mp3')
+spawn_wav.set_volume(0.4)
+vase_wav = pygame.mixer.Sound('data/music/vase.wav')
+vase_wav.set_volume(0.2)
+chest_wav = pygame.mixer.Sound('data/music/chest.wav')
+chest_wav.set_volume(0.4)
+
+pygame.mixer.music.load('data/music/bg_music.wav')
+pygame.mixer.music.set_volume(0.2)
+pygame.mixer.music.play(-1)
 
 # Game ------------------------------------------------------------------------------------------------------------------ #
 def game(map_name):
@@ -102,6 +144,7 @@ def game(map_name):
     hit_sparkle_bomb = False
     hit_player = False
     check_point = [[player.x, player.y - 16]]
+    player.check = 3
 
     # Player, entity var ------------------------------------------------------------------------------------------------------------------ #
     vel = 3
@@ -137,20 +180,30 @@ def game(map_name):
     BG_1_img = pygame.image.load('data/background/bg_1.png')
     BG_0 = pygame.transform.scale(BG_0_img, [display.get_width(), display.get_height()])
     BG_1 = pygame.transform.scale(BG_1_img, [display.get_width(), display.get_height()])
-
+    
+    grass_timer = 0
+    
     running = True
     # MAIN GAME -------------------------------------------------------------------------------------------------------------------------------#
     while running:
         display.fill([0, 0, 0, 0])
         HUD.fill([0,0,0,0])
-
+        
+        # Sound setting ------------------------------------------------------------------------------------------------------------------ #
+        if moving_right or moving_left:
+            if player.collision['bottom']:
+                if grass_timer == 0:
+                    random.choice(grass_wav).play()
+                    grass_timer = 10
+        if grass_timer > 0:
+            grass_timer -= 1
         # CAMERA ------------------------------------------------------------------------------------------------------------------ #
         true_scroll[0] += (player.rect.x - true_scroll[0] - display.get_width()/2) * ( 10 * (e.img_FPS / e.FPS) ) * 1 / 20
         true_scroll[1] += (player.rect.y - true_scroll[1] - display.get_height()/2) * ( 10 * (e.img_FPS / e.FPS) ) * 1 / 20
         scroll = true_scroll.copy()
         scroll[0] = int(scroll[0])
         scroll[1] = int(scroll[1])
-
+        
         #print(2500 - scroll[1]*0.25)
         # Backround ------------------------------------------------------------------------------------------------------------------ #
         display.blit(BG_0, [0 - scroll[0]*0.25 + display.get_width() * (player.x // display.get_width() // 4 - 1), 0])
@@ -166,140 +219,170 @@ def game(map_name):
        # player_rect = pygame.Rect([player.rect.x + 2, player.rect.y, player.rect.width - 3, player.rect.height])
        # pygame.draw.rect(display, [255,0,0], [player_rect.x - scroll[0], player_rect - scroll[1], player_rect.width, player_rect.height], 1)
         
+        if player.health <= 0 and player.check == 0:
+            player.check = 1
+        
+        if player.check == 1 or player.check == 2:
+            if player.check == 1:
+                health = 0
+                life -= 1
+                player.check = 2
+            if not player.one_time('death'):
+                player.load_animation(display, player.status, scroll)
+            else:
+                player.check = 3
+
+        if player.check == 3 or player.check == 4:
+            if player.check == 3:
+                player.rect.x, player.rect.y = check_point[-1][0], check_point[-1][1]
+                player.check = 4
+            if not player.one_time('spawn'):
+                player.load_animation(display, player.status, scroll)
+            else:
+                health = 100
+                player.check = 0
+        
         # Move momentum ------------------------------------------------------------------------------------------------------------------ #
         gravity = 0.5
         ground = 1.5
+        
+        if player.check == 0:
+            for entity in ENTITY:
+                if entity.ID == 'slime':
+                    entity.offset = [0, -8]
+                entity.movement = [0, 0]
+                entity.movement[1] += entity.y_momentum
+                entity.y_momentum = round(entity.y_momentum + gravity, 1)
+                if entity.y_momentum > 10:
+                    entity.y_momentum = 10
 
-        for entity in ENTITY:
-            if entity.ID == 'slime':
-                entity.offset = [0, -8]
-            entity.movement = [0, 0]
-            entity.movement[1] += entity.y_momentum
-            entity.y_momentum = round(entity.y_momentum + gravity, 1)
-            if entity.y_momentum > 10:
-                entity.y_momentum = 10
+            for obj in STONE:
+                if obj[0].ID == 'stone':
+                    obj[0].movement = [0, 0]
+                    obj[0].movement[1] += obj[0].y_momentum
+                    obj[0].y_momentum = round(obj[0].y_momentum + gravity, 1)
+                if obj[0].y_momentum > 10:
+                    obj[0].y_momentum = 10
 
-        for obj in STONE:
-            if obj[0].ID == 'stone':
-                obj[0].movement = [0, 0]
-                obj[0].movement[1] += obj[0].y_momentum
-                obj[0].y_momentum = round(obj[0].y_momentum + gravity, 1)
-            if obj[0].y_momentum > 10:
-                obj[0].y_momentum = 10
+            # Player move ------------------------------------------------------------------------------------------------------------------ #
+            player.movement = [0, 0]
 
-        # Player move ------------------------------------------------------------------------------------------------------------------ #
-        player.movement = [0, 0]
+            if not push:
+                if moving_right:
+                    if player.status != 'run':
+                        player.movement[0] += vel - 1
+                    else:
+                        player.movement[0] += vel
+                if moving_left:
+                    if player.status != 'run':
+                        player.movement[0] -= vel - 1
+                    else:
+                        player.movement[0] -= vel
+            else:
+                if moving_right:
+                    player.movement[0] += vel_push
+                if moving_left:
+                    player.movement[0] -= vel_push
 
-        if not push:
-            if moving_right:
-                if player.status != 'run':
-                    player.movement[0] += vel - 1
-                else:
-                    player.movement[0] += vel
-            if moving_left:
-                if player.status != 'run':
-                    player.movement[0] -= vel - 1
-                else:
-                    player.movement[0] -= vel
-        else:
-            if moving_right:
-                player.movement[0] += vel_push
-            if moving_left:
-                player.movement[0] -= vel_push
-
-        player.movement[1] += player.y_momentum
-        player.y_momentum = round(player.y_momentum + gravity, 1) # GRAVITY :))))
-        if player.y_momentum > 10:
-            player.y_momentum = 10
+            player.movement[1] += player.y_momentum
+            player.y_momentum = round(player.y_momentum + gravity, 1) # GRAVITY :))))
+            if player.y_momentum > 10:
+                player.y_momentum = 10
 
 
         # Action center ------------------------------------------------------------------------------------------------------------------ #
-        prev_status = player.status
+            prev_status = player.status
 
-        if moving_right:
-            player.flip = False
-        elif moving_left:
-            player.flip = True
+            if moving_right:
+                player.flip = False
+            elif moving_left:
+                player.flip = True
 
-        if not hit_player:
-            if not player.attack:
-                #print(player_movement[1], ground)
-                if not push:
-                    player.offset = [0, 0]
-                    if player.movement[0] != 0 and player.movement[1] == 0:
-                        player.change_action('run')
-                    if player.movement[0] == 0 and player.movement[1] == 0:
-                        player.change_action('idle')
-                    if player.movement[1] < 0 and jump_count < 2:
-                        player.change_action('jump_up')
-                    if player.movement[1] > ground and ( jump_count == 18 or jump_count == 1) or player.movement[1] > ground or player.collision['top']:
-                        player.change_action('jump_down')
-                    if 18 > jump_count >= 2:
-                        if player.collision['top']:
-                            check = False
-                        if check:
-                            player.change_action('jump_double')
-                            jump_count += 1
-                else:
-                    player.change_action('pushing_foward')
-
-        if player.movement[1] == 0:
-            if player.collision['bottom']:
-                jump_count = 0
-                check = True
-
-        now_status = player.status
-
-        if player.attack:
-            attack_rect = player.attack_rect(14, [-16, 0])
-            # if player.attack:
-                # pygame.draw.rect(display, [255,0,255], [attack_rect.x + 50, attack_rect.y - 9999, attack_rect.width, attack_rect.height], 1)
-
-        #pygame.draw.rect(display, [255,255,255], [player.rect.x - scroll[0], player.rect.y - scroll[1], player.rect.width, player.rect.height], 1)
-        # pygame.draw.rect(display, [255,0,255], [player.x + 50, player.y - 9999, player.rect.width, player.rect.height], 1)
-
-        # Flash skill ------------------------------------------------------------------------------------------------------------------ #
-        if flash:
-            if time.time() - flash_start >= 5:
-                for i in range(50):
-                    if player.flip:
-                        player.move([-2, 0], tile_rects)
+            if not hit_player:
+                if not player.attack:
+                    #print(player_movement[1], ground)
+                    if not push:
+                        player.offset = [0, 0]
+                        if player.movement[0] != 0 and player.movement[1] == 0:
+                            player.change_action('run')
+                        if player.movement[0] == 0 and player.movement[1] == 0:
+                            player.change_action('idle')
+                        if player.movement[1] < 0 and jump_count < 2:
+                            player.change_action('jump_up')
+                            if player.time == 0:
+                                fall_wav.play()
+                                player.time = 20
+                        if player.movement[1] > ground and ( jump_count == 18 or jump_count == 1) or player.movement[1] > ground or player.collision['top']:
+                            player.change_action('jump_down')
+                            if player.time == 0:
+                                fall_wav.play()
+                                player.time = 20
+                        if 18 > jump_count >= 2:
+                            if player.collision['top']:
+                                check = False
+                            if check:
+                                player.change_action('jump_double')
+                                if player.time == 0:
+                                    fall_wav.play()
+                                    player.time = 20
+                                jump_count += 1
                     else:
-                        player.move([ 2, 0], tile_rects)
-                    if i % 10 == 0:
-                        player.load_animation(display, 'hit', scroll)
-                flash_start = time.time()
-        else:
-            dash_per = (time.time() - flash_start)/5
-            if dash_per > 1:
-                dash_per = 1
+                        player.change_action('pushing_foward')
+            if player.time > 0:
+                player.time -= 1
+            if player.movement[1] == 0:
+                if player.collision['bottom']:
+                    jump_count = 0
+                    check = True
 
-        # Create effect ------------------------------------------------------------------------------------------------------------------ #
-        if prev_status != 'jump_up' and now_status == 'jump_up' or ( prev_status == 'jump_up' and now_status == 'jump_double'):
-            EFFECT.append([e.object('herochar_before_jump_dust', [player.rect.x, player.rect.y]), 8])
-        if prev_status == 'jump_down' and now_status != 'jump_down':
-            EFFECT.append([e.object('herochar_after_jump_dust', [player.rect.x, player.rect.y]), 8])
+            now_status = player.status
 
-        # Move Player ------------------------------------------------------------------------------------------------------------------ #
-        player.move(player.movement, tile_rects)
-        if player.collision['bottom']:
-            player.y_momentum = 0
-            air_timer = 0
-        else:
-            air_timer += 1
-        if player.collision['top']:
-            player.y_momentum = 0
+            if player.attack:
+                attack_rect = player.attack_rect(14, [-16, 0])
+                # if player.attack:
+                    # pygame.draw.rect(display, [255,0,255], [attack_rect.x + 50, attack_rect.y - 9999, attack_rect.width, attack_rect.height], 1)
+
+            #pygame.draw.rect(display, [255,255,255], [player.rect.x - scroll[0], player.rect.y - scroll[1], player.rect.width, player.rect.height], 1)
+            # pygame.draw.rect(display, [255,0,255], [player.x + 50, player.y - 9999, player.rect.width, player.rect.height], 1)
+
+            # Flash skill ------------------------------------------------------------------------------------------------------------------ #
+            if flash:
+                if time.time() - flash_start >= 5:
+                    dash_wav.play()
+                    for i in range(50):
+                        if player.flip:
+                            player.move([-2, 0], tile_rects)
+                        else:
+                            player.move([ 2, 0], tile_rects)
+                        if i % 10 == 0:
+                            player.load_animation(display, 'hit', scroll)
+                    flash_start = time.time()
+            else:
+                dash_per = (time.time() - flash_start)/5
+                if dash_per > 1:
+                    dash_per = 1
+
+            # Create effect ------------------------------------------------------------------------------------------------------------------ #
+            if prev_status != 'jump_up' and now_status == 'jump_up' or ( prev_status == 'jump_up' and now_status == 'jump_double'):
+                EFFECT.append([e.object('herochar_before_jump_dust', [player.rect.x, player.rect.y]), 8])
+            if prev_status == 'jump_down' and now_status != 'jump_down':
+                EFFECT.append([e.object('herochar_after_jump_dust', [player.rect.x, player.rect.y]), 8])
+
+            # Move Player ------------------------------------------------------------------------------------------------------------------ #
+            player.move(player.movement, tile_rects)
+            if player.collision['bottom']:
+                player.y_momentum = 0
+                air_timer = 0
+            else:
+                air_timer += 1
+            if player.collision['top']:
+                player.y_momentum = 0
 
         # Render entity ------------------------------------------------------------------------------------------------------------------ #
         display_render = pygame.Rect(scroll[0], scroll[1], WINDOWN_SIZE[0] / SCALE, WINDOWN_SIZE[1] / SCALE)
-        text = ['Adventure time', 3]
-        text_pos = [0, - 150]
-        text_rect = e.text_draw(display, text[0], text[1], text_pos, scroll,False)
-        if display_render.colliderect(text_rect):
-            e.text_draw(display, text[0], text[1], text_pos, scroll)
 
-        push_check = 0
         # STONE ------------------------------------------------------------------------------------------------------------------ #
+        push_check = 0
         tile_rects = []
         stone_rects = []
         if strange_door_ex:
@@ -336,29 +419,45 @@ def game(map_name):
             if player.rect.colliderect(push_rect):
                 if moving_right:
                     if push_rect.right >= player.rect.right >= push_rect.left:
+                        if obj.time == 0:
+                            push_wav.play()
+                            obj.time = 15
                         obj.movement[0] += vel_push
                         obj.rect, obj.collision = e.move(obj_rect, obj.movement, tile_rects)
                         obj.x, obj.y = obj.rect.x, obj.rect.y
                         player.offset[0] = 2
                         player.rect.right = obj_rect.left
                     else:
+                        obj.time = 0
+                        push_wav.stop()
                         push_check += 1
                 elif moving_left:
                     if push_rect.left <= player.rect.left <= push_rect.right:
+                        if obj.time == 0:
+                            push_wav.play()
+                            obj.time = 15
                         obj.movement[0] -= vel_push
                         obj.rect, obj.collision = e.move(obj_rect, obj.movement, tile_rects)
                         obj.x, obj.y = obj.rect.x, obj.rect.y
                         player.offset[0] = -2
                         player.rect.left = obj_rect.right
                     else:
+                        obj.time = 0
+                        push_wav.stop()
                         push_check += 1
                 if player.movement[1] < 0:
+                    obj.time = 0
+                    push_wav.stop()
                     push_check += 1
                 if player.movement[0] == 0:
+                    obj.time  = 0
+                    push_wav.stop()
                     push_check += 1
             else:
                 push_check += 1
-
+            
+            if obj.time > 0:
+                obj.time  -= 1
             tile_rects.append(obj_rect)
             stone_rects.append(obj_rect)
 
@@ -384,12 +483,27 @@ def game(map_name):
                 if obj[0].ID == 'buttom':
                     for stone_rect in stone_rects:
                         if stone_rect.colliderect(obj_rect) or player.rect.colliderect(obj_rect):
+                            if not buttom_active:
+                                button_wav.play()
                             obj[0].change_action('pressed')
                             buttom_active = True
                         else:
+                            if buttom_active:
+                                button_wav.play()
                             obj[0].change_action('idle')
                             buttom_active = False
-
+                    if stone_rects == []:
+                        if player.rect.colliderect(obj_rect):
+                            if not buttom_active:
+                                button_wav.play()
+                            obj[0].change_action('pressed')
+                            buttom_active = True
+                        else:
+                            if buttom_active:
+                                button_wav.play()
+                            obj[0].change_action('idle')
+                            buttom_active = False
+                        
                     obj[0].load_animation(display, obj[0].status, scroll)
 
                 # Items ------------------------------------------------------------------------------------------------------------------ #
@@ -412,6 +526,7 @@ def game(map_name):
                         if ( player.rect.colliderect(obj_rect) or attack_rect.colliderect(obj_rect) ):
                             if hit_lever == 0:
                                 if (player.rect.x <= obj_rect.x + obj_rect.width / 2 and not player.flip) or (player.rect.x >= obj_rect.x + obj_rect.width / 2 and player.flip) or obj_rect.x - 10 <= player.rect.x <= obj_rect.x + obj_rect.width:
+                                    lever_wav.play()
                                     if lever_active:
                                         lever_active = False
                                         obj[0].change_action('idle')
@@ -434,8 +549,12 @@ def game(map_name):
                             obj[0].load_animation(display, 'opening', scroll)
                             strange_door_rect.y += 1
                             strange_door_rect.height -= 1
-                           # obj[0].y += 1
+                            if obj[0].check == 0:
+                                strange_door_open.play()
+                                obj[0].check = 1
                         else:
+                            obj[0].check = 0
+                            #strange_door_open.stop()
                             strange_door_rect.top = obj_rect.bottom
                             strange_door_opening = True
                             strange_door_closing = False
@@ -451,7 +570,12 @@ def game(map_name):
                             obj[0].load_animation(display, 'closing', scroll)
                             strange_door_rect.y -= 1
                             strange_door_rect.height += 1
+                            if obj[0].check == 0:
+                                strange_door_close.play()
+                                obj[0].check = 1
                         else:
+                            obj[0].check = 0
+                            #strange_door_close.stop()
                             strange_door_rect.top = obj_rect.top
                             strange_door_opening = False
                             strange_door_closing = True
@@ -461,6 +585,9 @@ def game(map_name):
 
                     # Closed  ------------------------------------------------------------------------------------------------------------------ #
                     else:
+                        obj[0].check = 0
+                        strange_door_close.stop()
+                        strange_door_open.stop()
                         tile_rects.remove(strange_door_rect)
                         strange_door_rect = obj_rect
                         obj[0].load_animation(display, 'closed', scroll)
@@ -474,6 +601,7 @@ def game(map_name):
                     if obj[0].check != 0:
                         obj[0].load_animation(display, 'saving', scroll)
                         if obj[0].check == 1:
+                            spawn_wav.play()
                             obj[0].check = 2
                             check_point.append([obj_rect.x, obj_rect.y - 16])
                     else:
@@ -481,20 +609,25 @@ def game(map_name):
 
                 # Loot box ------------------------------------------------------------------------------------------------------------------ #
                 elif obj[0].ID == 'loot_box':
-                    if player.attack and not loot_box_opened:
+                    if player.attack and obj[0].check == 0:
                         if ( player.rect.colliderect(obj_rect) or attack_rect.colliderect(obj_rect) ):
+                            obj[0].check = 1
                             if not loot_box:
                                 loot_box = True
-                    if loot_box:
+                    if obj[0].check == 1 or obj[0].check == 2:
                         if not obj[0].one_time('opening', [0, -2]):
+                            if obj[0].check == 1:
+                                chest_wav.play()
+                                obj[0].check = 2
                             obj[0].load_animation(display, 'opening', scroll)
                         else:
+                            obj[0].check = 3
                             loot_box = False
                             loot_box_opened = True
-                    elif loot_box_opened:
+                    elif obj[0].check == 3 or obj[0].check == 4:
                         obj[0].load_animation(display, 'opened', scroll)
-                        if obj[0].check == 0:
-                            obj[0].check = 1
+                        if obj[0].check == 3:
+                            obj[0].check = 4
                             num = random.randint(1,100)
                             coin += random.randint(5, 15)
                             if num <= 5:
@@ -527,8 +660,12 @@ def game(map_name):
                             obj[0].attack = 1
                     if obj[0].attack == 1:
                         if not obj[0].one_time('breaking'):
+                            if obj[0].check == 0:
+                                vase_wav.play()
+                                obj[0].check += 1
                             obj[0].load_animation(display, 'breaking', scroll)
                         else:
+                            obj[0].check = 0
                             obj[0].attack = 2
                             if obj[0].check == 0:
                                 obj[0].check = 1
@@ -569,7 +706,7 @@ def game(map_name):
                         obj[0] = e.object('spikes_trap', [obj[0].x, obj[0].y])
 
                 elif obj[0].ID == 'spikes_trap':
-                    obj[0].move([0, 4])
+                    obj[0].move([0, 3])
                     obj[0].load_animation(display, 'idle', scroll)
                     if obj[0].get_rect('idle').colliderect(player.rect) and not obj[0].collision['bottom'] and not obj[0].attack != 0:
                         hit_player = True
@@ -611,10 +748,13 @@ def game(map_name):
 
                 # Trap_spike ------------------------------------------------------------------------------------------------------------------ #
                 elif obj[0].ID == 'trap_spike':
-                    if player.rect.colliderect(obj_rect):
+                    if obj[0].check > 0:
+                        obj[0].check -= 1
+                    if player.rect.colliderect(obj_rect) and obj[0].check == 0:
                         if obj[0].attack == 0:
                             hit_player = True
                             hit_sparkle = True
+                            obj[0].check = 30
                         obj[0].attack = 1
                     if obj[0].attack == 1:
                         if not obj[0].one_time('attack'):
@@ -690,10 +830,16 @@ def game(map_name):
                         obj[0].attack = 2
                     else:
                         obj[0].attack = 2
-
+            
+            if player.check != 0:
+                hit_player = False
+                hit_sparkle = False
+                
+            
             if hit_player:# and (attack_area.colliderect(player.rect)):
                 if player.one_time('hit'):
                     #print('true')
+                    hit_wav.play()
                     hit_player = False
                 if hit_sparkle:
                     if obj[0].ID == 'spikes_trap' or obj[0].ID == 'trap_spike':
@@ -702,11 +848,13 @@ def game(map_name):
                         health -= 20
                     if obj[0].ID == 'bomb':
                         if player.x >= obj[0].rect.x + obj[0].rect.width / 2:
-                            player.move([ 20, 0], tile_rects)
+                            for _ in range(20):
+                                player.move([ 1, 0], tile_rects)
                         else:
-                            player.move([ - 20, 0], tile_rects)
+                            for _ in range(20):
+                                player.move([ -1, 0], tile_rects)
                     elif obj[0].ID == 'spikes_trap':
-                        player.move([0, 10])
+                        player.move([0, 10], tile_rects)
                     elif obj[0].ID == 'trap_suspended':
                         #print(player.x ,trap_suspended_rect.x + trap_suspended_rect.width)
                         if player.x >= trap_suspended_rect.x: #+ trap_suspended_rect.width:
@@ -744,8 +892,12 @@ def game(map_name):
                     coin_o[0].load_animation(display, 'idle', scroll)
                 else:
                     if not coin_o[0].one_time('pickup', [0, -8]):
+                        if coin_o[0].check == 0:
+                            coin_wav.play()
+                            coin_o[0].check += 1
                         coin_o[0].load_animation(display, coin_o[0].status, scroll)
                     else:
+                        coin_o[0].check = 0
                         COIN.remove(coin_o)
                         coin += 1
             e.text_draw(HUD, str(coin), 2, [36, 17])
@@ -768,6 +920,7 @@ def game(map_name):
                     x, y, land = PROJECTILE[entity][1].throw(PROJECTILE[entity][0], entity)
                     if PROJECTILE[entity][-1] == 0:
                         PROJECTILE[entity].append(e.object('bomb', [x, y]))
+                        PROJECTILE[entity][1].flip = entity.flip
                     else:
                         bomb = PROJECTILE[entity][-1]
                         if bomb.collision['bottom']:
@@ -775,44 +928,45 @@ def game(map_name):
                         if bomb.attack == 0:
                             bomb.load_animation(display, 'thrown', scroll)
                             bomb.attack = 1
-                        else:
-                            if bomb.attack == 1:
-                                if land:
-                                    if not bomb.one_time('on_ground'):
-                                        bomb.load_animation(display, 'on_ground', scroll)
-                                    else:
-                                        PROJECTILE[entity] = [[player.x, player.y, player.rect.width, player.rect.height], 1, 0]
-                                        bomb_area = bomb.attack_area([16, 16])
-                                        EFFECT.append([e.object('explosion', [bomb.x - 13, bomb.y - 24]), 30])
-                                        #pygame.draw.rect(display, [255,255,0], [bomb_area.x - scroll[0], bomb_area.y - scroll[1], bomb_area.width, bomb_area.height], 1)
-
-                                        if player.rect.colliderect(bomb_area):
-                                            hit_sparkle_bomb = True
-                                            hit_player = True
-                                elif bomb.get_rect(bomb.status).colliderect(player.rect):
+                        if bomb.attack == 1:
+                            if land:
+                                if not bomb.one_time('on_ground'):
+                                    bomb.load_animation(display, 'on_ground', scroll)
+                                else:
                                     PROJECTILE[entity] = [[player.x, player.y, player.rect.width, player.rect.height], 1, 0]
                                     bomb_area = bomb.attack_area([16, 16])
-                                    EFFECT.append([e.object('explosion', [bomb.x - 13, bomb.y - 24]), 30])
+                                    explosion_wav.play()
+                                    EFFECT.append([e.object('explosion', [bomb.x - 13, bomb.y - 24]), 20])
                                     #pygame.draw.rect(display, [255,255,0], [bomb_area.x - scroll[0], bomb_area.y - scroll[1], bomb_area.width, bomb_area.height], 1)
+
                                     if player.rect.colliderect(bomb_area):
                                         hit_sparkle_bomb = True
                                         hit_player = True
+                            elif bomb.get_rect(bomb.status).colliderect(player.rect):
+                                PROJECTILE[entity] = [[player.x, player.y, player.rect.width, player.rect.height], 1, 0]
+                                bomb_area = bomb.attack_area([16, 16])
+                                explosion_wav.play()
+                                EFFECT.append([e.object('explosion', [bomb.x - 13, bomb.y - 24]), 20])
+                                #pygame.draw.rect(display, [255,255,0], [bomb_area.x - scroll[0], bomb_area.y - scroll[1], bomb_area.width, bomb_area.height], 1)
+                                if player.rect.colliderect(bomb_area):
+                                    hit_sparkle_bomb = True
+                                    hit_player = True
 
+                            else:
+                                if bomb.collision['left'] or bomb.collision['right']:
+                                    bomb.time = 1
+                                if bomb.collision['top']:
+                                    bomb.time = 2
+                                if bomb.time == 0:
+                                    #print('true')
+                                    bomb.move([x - bomb.x, y - bomb.y])#, display, scroll)
                                 else:
-                                    if bomb.collision['left'] or bomb.collision['right']:
-                                        bomb.time = 1
-                                    if bomb.collision['top']:
-                                        bomb.time = 2
-                                    if bomb.time == 0:
-                                        #print('true')
-                                        bomb.move([x - bomb.x, y - bomb.y])#, display, scroll)
+                                    if bomb.time == 2:
+                                        bomb.move([0, 4])#, display, scroll)
                                     else:
-                                        if bomb.time == 2:
-                                            bomb.move([0, 4])#, display, scroll)
-                                        else:
-                                            bomb.move([0, y - bomb.y])#, display, scroll)
+                                        bomb.move([0, y - bomb.y])#, display, scroll)
 
-                                    bomb.load_animation(display, 'thrown', scroll)
+                                bomb.load_animation(display, 'thrown', scroll)
 
                         # if bomb.y > player.y + IMG_SIZE[0]*3:
                             # PROJECTILE[entity] = [[player.x, player.y, player.rect.width, player.rect.height], 1, 0]
@@ -859,24 +1013,25 @@ def game(map_name):
                         if entity.ID != 'bomber_goblin':
 
                             # Attack Player ------------------------------------------------------------------------------------------------------------------ #
-                            if player.rect.colliderect(attack_area) and entity.attack_timer > 15 and not flash and entity.ID != 'worm':
-                                entity.attack = True
-                                entity.attack_timer = 0
-                                hit_sparkle = True
-                                hit_player = True
-                                if player.x + player.rect.width / 2>= entity.x + attack_area.width / 2:
-                                    entity.flip = False
+                            if player.check == 0:
+                                if player.rect.colliderect(attack_area) and entity.attack_timer > 15 and not flash and entity.ID != 'worm':
+                                    entity.attack = True
+                                    entity.attack_timer = 0
+                                    hit_sparkle = True
+                                    hit_player = True
+                                    if player.x + player.rect.width / 2>= entity.x + attack_area.width / 2:
+                                        entity.flip = False
+                                    else:
+                                        entity.flip = True
                                 else:
-                                    entity.flip = True
-                            else:
-                                if player.x < entity.x:
-                                    entity.movement[0] = -1
-                                    entity.flip = True
-                                elif player.x > entity.x:
-                                    entity.movement[0] = 1
-                                    entity.flip = False
+                                    if player.x < entity.x:
+                                        entity.movement[0] = -1
+                                        entity.flip = True
+                                    elif player.x > entity.x:
+                                        entity.movement[0] = 1
+                                        entity.flip = False
                         else:
-                            if not player.rect.colliderect(attack_area):
+                            if not player.rect.colliderect(attack_area) or player.check != 0:
 
                                 # Move can fall ------------------------------------------------------------------------------------------------------------------ #
                                 if not entity.check_fall(tile_rects):#display, scroll):
@@ -896,8 +1051,10 @@ def game(map_name):
                                 if player.rect.colliderect(attack_area):
                                     # create bomb ------------------------------------------------------------------------------------------------------------------ #
                                     if PROJECTILE[entity][1] == 1 and entity.check == 0:
-                                        PROJECTILE[entity] = [[player.x, player.y, player.rect.width, player.rect.height], 0, 0]
-                                        entity.check += 1
+                                        if player.x < entity.x or player.x > entity.x + entity.rect.width:
+                                            if player.check == 0:
+                                                PROJECTILE[entity] = [[player.x, player.y, player.rect.width, player.rect.height], 0, 0]
+                                                entity.check += 1
 
                     else:
                         # Return ------------------------------------------------------------------------------------------------------------------ #
@@ -972,9 +1129,14 @@ def game(map_name):
                         hit_sparkle = False
 
             # Player HIT ------------------------------------------------------------------------------------------------------------------ #
+            if player.check != 0:
+                hit_player = False
+                hit_sparkle = False
+            
             if hit_player:# and (attack_area.colliderect(player.rect)):
                 if player.one_time('hit'):
                     #print('true')
+                    hit_wav.play()
                     hit_player = False
                     entity.attack = False
                 if hit_sparkle:
@@ -989,9 +1151,11 @@ def game(map_name):
                 elif hit_sparkle_bomb:
                     health -= 8
                     if player.x >= bomb_area.x + bomb_area.width / 2:
-                        player.move([ 20, 0], tile_rects)
+                        for _ in range(4):
+                            player.move([ 5, 0], tile_rects)
                     else:
-                        player.move([ - 20, 0], tile_rects)
+                        for _ in range(4):
+                            player.move([ - 5, 0], tile_rects)
 
                     EFFECT.append([e.object('herochar_hit_sparkle', [player.rect.x, player.rect.y]), 8])
                     hit_sparkle_bomb = False
@@ -1012,7 +1176,6 @@ def game(map_name):
             # #pygame.draw.rect(display, [208, 70, 72], health_bar_rect)
             # health_sur = pygame.transform.scale(health_sur, [24, 4])
             # display.blit(health_sur, [entity.x - 5 - scroll[0], entity.y - 10 - scroll[1]])
-
 
         # Create bomb ------------------------------------------------------------------------------------------------------------------ #
         for pro in PROJECTILE:
@@ -1079,6 +1242,7 @@ def game(map_name):
             if event.type == KEYDOWN:
                 if event.key == K_SPACE:
                     if not hit_player and player.attack_timer > 15:
+                        attack_wav.play()
                         player.attack = True
                         player.attack_timer = 0
                     hit_sparkle = True
@@ -1087,6 +1251,7 @@ def game(map_name):
                 if event.key == K_LEFT:
                     moving_left = True
                 if event.key == K_UP:
+                    jump_wav.play()
                     if jump_count < 2:
                         if jump_count == 0:
                             player.y_momentum = - jump_power
@@ -1110,6 +1275,7 @@ def game(map_name):
                     moving_right = False
                 if event.key == K_LEFT:
                     moving_left = False
+        
         if level == 0:
             e.text_draw(display, 'Press arrow keys to move', 2, [- 40, 9920], scroll, True, display_render)
             e.text_draw(display, 'Press space to attack', 2, [- 40, 9930], scroll, True, display_render)
@@ -1129,19 +1295,18 @@ def game(map_name):
             if player.y > 10070:
                 health = 0
         
-        if level == 2:
+        if level == 6:
             win_rect = e.text_draw(screen, 'THANK FOR PLAYING', 4, [0, 0], scroll, False)
             e.text_draw(display, 'THANK FOR PLAYING', 4, [- 40, 10048 + 50], scroll)
+        
 
+        
+        
         surf = pygame.transform.scale(display, WINDOWN_SIZE)
         screen.blit(surf, [0, 0])
 
         # HUD surface ------------------------------------------------------------------------------------------------------------------ #
-        if player.health <= 0:
-            life -= 1
-            health = 100
-            player.rect.x, player.rect.y = check_point[-1][0], check_point[-1][1]
-        
+                
         #print(health)
         if health > 100:
             health = 100
@@ -1242,13 +1407,15 @@ def game(map_name):
                 if obj[0].check == 1:
                     OBJECT.remove(obj)
         
+
         # Update game ------------------------------------------------------------------------------------------------------------------ #
         pygame.display.update()
         clock.tick(e.FPS)
 
 # Main Menu ------------------------------------------------------------------------------------------------------------------ #
 def main_menu():
-
+    global health, life, INVENTORY, level
+    
     # Backround ------------------------------------------------------------------------------------------------------------------ #
     BG_0_img = pygame.image.load('data/background/bg_0.png')
     BG_1_img = pygame.image.load('data/background/bg_1.png')
@@ -1270,7 +1437,7 @@ def main_menu():
     # Main Menu Loop ------------------------------------------------------------------------------------------------------------------ #
     running = True
     while running:
-
+        
         # Background ------------------------------------------------------------------------------------------------------------------ #
         if i == BG_0.get_width():
             i = 0
@@ -1298,6 +1465,7 @@ def main_menu():
             e.UI(start_buttom_y, screen, [1.5, 1.5], [WINDOWN_SIZE[0]/2 - start_button.width/2, WINDOWN_SIZE[1]/2 - start_button.height/2])
         else:
             if click:
+                click_wav.play()
                 e.UI(start_buttom_b_c, screen, [1.5, 1.5], [WINDOWN_SIZE[0]/2 - start_button.width/2, WINDOWN_SIZE[1]/2 - start_button.height/2])
                 if level == 0:
                     if not game('tutorial'):
@@ -1305,11 +1473,39 @@ def main_menu():
                             health = 100
                             life = 3
                 if level == 1:
-                    if not game('test'):
+                    INVENTORY = {}
+                    health = 100
+                    life = 3
+                    if not game('level_1'):
                         if end():
+                            level = 1
                             health = 100
                             life = 3
                 if level == 2:
+                    if not game('level_2'):
+                        if end():
+                            level = 1
+                            health = 100
+                            life = 3
+                if level == 3:
+                    if not game('level_3'):
+                        if end():
+                            level = 1
+                            health = 100
+                            life = 3
+                if level == 4:
+                    if not game('level_4'):
+                        if end():
+                            health = 100
+                            life = 3
+                            level = 1
+                if level == 5:
+                    if not game('level_5'):
+                        if end():
+                            health = 100
+                            life = 3
+                            level = 1
+                if level == 6:
                     life = 3
                     health = 100
                     game('win')
@@ -1392,16 +1588,18 @@ def end():
             e.UI(restart_button_y, screen, [1.5, 1.5], [WINDOWN_SIZE[0]/2 - restart_button.width/2, WINDOWN_SIZE[1]/2 - restart_button.height/2])
         else:
             if click:
+                click_wav.play()
                 e.UI(restart_button_b_c, screen, [1.5, 1.5], [WINDOWN_SIZE[0]/2 - restart_button.width/2, WINDOWN_SIZE[1]/2 - restart_button.height/2])
-                health = 100
-                life = 3
-                INVENTORY = {}
-                if level == 0:
-                    game('tutorial')
-                if level == 1:
-                    game('test')
-                if level == 2:
-                    game('win')
+                return True
+                # health = 100
+                # life = 3
+                # INVENTORY = {}
+                # if level == 0:
+                    # game('tutorial')
+                # if level == 1:
+                    # game('test')
+                # if level == 2:
+                    # game('win')
                     
             else:
                 e.UI(restart_button_b, screen, [1.5, 1.5], [WINDOWN_SIZE[0]/2 - restart_button.width/2, WINDOWN_SIZE[1]/2 - restart_button.height/2])
@@ -1421,7 +1619,7 @@ def end():
         clock.tick(60)
         
         pygame.display.update()
-        
-#game('tutorial')#
+
+#game('trap')#
 main_menu()
 #end()

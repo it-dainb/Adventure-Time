@@ -460,6 +460,7 @@ class entity(object):
         self.health = 100
         self.life = 1
         self.hitbox = self.rect
+        self.time = 0
     
 
     def area(self, width, height, double_height = False):
@@ -500,7 +501,7 @@ class entity(object):
         ID = self.ID + '_' + status
         self.offset = offset
         self.change_action(status)
-        if self.frame == len(animation_database[ID]) - 1:
+        if self.frame >= len(animation_database[ID]) - 1:
             self.offset = [0, 0]
             self.status = 'idle'
             self.frame = 0
@@ -582,6 +583,7 @@ class projectile(object):
         self.x = 0
         self.y = 0
         self.check = 0
+        self.flip = False
         
     def throw(self, player, entity):
         land = False            
@@ -629,7 +631,7 @@ class projectile(object):
                 self.x = offset
                 self.check = 1
             else:
-                if entity.flip:
+                if self.flip:
                     self.x -= d_x/20
                 else:
                     self.x += d_x/20
