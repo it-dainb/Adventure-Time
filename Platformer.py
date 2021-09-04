@@ -32,7 +32,7 @@ database = e.create_database() # ID: [img_loaded, img_name, type] type can be ob
     # print(k, database[k][1])
 
 # Global variable ------------------------------------------------------------------------------------------------------------------ #
-coin = 0
+coin = 1000
 life = 3
 health = 100
 level = 0
@@ -46,6 +46,7 @@ grass_wav = [pygame.mixer.Sound('data/music/grass_0.wav'), pygame.mixer.Sound('d
 grass_wav[0].set_volume(0.1) 
 grass_wav[1].set_volume(0.1)
 coin_wav = pygame.mixer.Sound('data/music/coin.wav')
+coin_wav.set_volume(0.5)
 jump_wav = pygame.mixer.Sound('data/music/jump.wav')
 jump_wav.set_volume(0.3)
 hit_wav = pygame.mixer.Sound('data/music/hit.wav')
@@ -73,6 +74,8 @@ vase_wav = pygame.mixer.Sound('data/music/vase.wav')
 vase_wav.set_volume(0.2)
 chest_wav = pygame.mixer.Sound('data/music/chest.wav')
 chest_wav.set_volume(0.4)
+end_wav = pygame.mixer.Sound('data/music/end.wav')
+end_wav.set_volume(0.4)
 
 pygame.mixer.music.load('data/music/bg_music.wav')
 pygame.mixer.music.set_volume(0.2)
@@ -110,7 +113,8 @@ def game(map_name):
     # List of entity, object, efffect ------------------------------------------------------------------------------------------------------------------ #
     ENTITY = []
     OBJECT = []
-    COIN = []
+    COINS = []
+    COIN = {}
     STONE = []
     stone_rects = []
     tile_rects = []
@@ -133,12 +137,12 @@ def game(map_name):
                 elif data[1] == 62:
                     OBJECT.append([e.object(data[2], data[0]), 'on_ground'])
                 elif data[1] == 64:
-                    COIN.append([e.object(data[2], data[0]), 'idle'])
+                    COINS.append([[data[2], data[0]], 'idle', pygame.Rect([data[0][0], data[0][1], 8, 8])]) # ID, pos
                 elif data[1] == 78:
                     STONE.append([e.object(data[2], data[0]), 'idle'])
                 else:
                     OBJECT.append([e.object(data[2], data[0]), 'idle'])
-
+    
     EFFECT = [] # [object, duration]
     hit_sparkle = False
     hit_sparkle_bomb = False
@@ -184,6 +188,16 @@ def game(map_name):
     grass_timer = 0
     
     running = True
+    
+    # SHOP ------------------------------------------------------------------------------------------------------------------ #
+    SHOP = []
+    health_price = 100
+    apple_price = 10
+    meat_price = 50
+    
+    # Praticle ------------------------------------------------------------------------------------------------------------------ #
+    PARTICLES = []
+    
     # MAIN GAME -------------------------------------------------------------------------------------------------------------------------------#
     while running:
         display.fill([0, 0, 0, 0])
@@ -214,8 +228,8 @@ def game(map_name):
         display.blit(BG_1, [0 - scroll[0]*0.5 - 55 + display.get_width() * (player.x // display.get_width() // 2 + 1), 0])
 
         # TILE RENDERING ------------------------------------------------------------------------------------------------------------------ #
-        #e.chunk_render(display, WINDOWN_SIZE, SCALE, CHUNK_SIZE, IMG_SIZE, scroll)
-        e.map_render(display, scroll)
+        display_render = pygame.Rect(scroll[0], scroll[1], WINDOWN_SIZE[0] / SCALE, WINDOWN_SIZE[1] / SCALE)
+        e.map_render(display, scroll, display_render)
        # player_rect = pygame.Rect([player.rect.x + 2, player.rect.y, player.rect.width - 3, player.rect.height])
        # pygame.draw.rect(display, [255,0,0], [player_rect.x - scroll[0], player_rect - scroll[1], player_rect.width, player_rect.height], 1)
         
@@ -224,6 +238,7 @@ def game(map_name):
         
         if player.check == 1 or player.check == 2:
             if player.check == 1:
+                end_wav.play()
                 health = 0
                 life -= 1
                 player.check = 2
@@ -247,22 +262,23 @@ def game(map_name):
         ground = 1.5
         
         if player.check == 0:
-            for entity in ENTITY:
-                if entity.ID == 'slime':
-                    entity.offset = [0, -8]
-                entity.movement = [0, 0]
-                entity.movement[1] += entity.y_momentum
-                entity.y_momentum = round(entity.y_momentum + gravity, 1)
-                if entity.y_momentum > 10:
-                    entity.y_momentum = 10
+            if str(level)[-2:] != '.5':
+                for entity in ENTITY:
+                    if entity.ID == 'slime':
+                        entity.offset = [0, -8]
+                    entity.movement = [0, 0]
+                    entity.movement[1] += entity.y_momentum
+                    entity.y_momentum = round(entity.y_momentum + gravity, 1)
+                    if entity.y_momentum > 10:
+                        entity.y_momentum = 10
 
-            for obj in STONE:
-                if obj[0].ID == 'stone':
-                    obj[0].movement = [0, 0]
-                    obj[0].movement[1] += obj[0].y_momentum
-                    obj[0].y_momentum = round(obj[0].y_momentum + gravity, 1)
-                if obj[0].y_momentum > 10:
-                    obj[0].y_momentum = 10
+                for obj in STONE:
+                    if obj[0].ID == 'stone':
+                        obj[0].movement = [0, 0]
+                        obj[0].movement[1] += obj[0].y_momentum
+                        obj[0].y_momentum = round(obj[0].y_momentum + gravity, 1)
+                    if obj[0].y_momentum > 10:
+                        obj[0].y_momentum = 10
 
             # Player move ------------------------------------------------------------------------------------------------------------------ #
             player.movement = [0, 0]
@@ -378,9 +394,6 @@ def game(map_name):
             if player.collision['top']:
                 player.y_momentum = 0
 
-        # Render entity ------------------------------------------------------------------------------------------------------------------ #
-        display_render = pygame.Rect(scroll[0], scroll[1], WINDOWN_SIZE[0] / SCALE, WINDOWN_SIZE[1] / SCALE)
-
         # STONE ------------------------------------------------------------------------------------------------------------------ #
         push_check = 0
         tile_rects = []
@@ -466,7 +479,7 @@ def game(map_name):
             push = False
         else:
             push = True
-
+        
         # Object system ------------------------------------------------------------------------------------------------------------------ #
         for obj in OBJECT:
             if not get:
@@ -496,14 +509,18 @@ def game(map_name):
                         if player.rect.colliderect(obj_rect):
                             if not buttom_active:
                                 button_wav.play()
+                                if str(level)[-2:] == '.5':
+                                    for item in SHOP:
+                                        item[0].check = 0
+                                        OBJECT.append(item)
                             obj[0].change_action('pressed')
                             buttom_active = True
                         else:
                             if buttom_active:
                                 button_wav.play()
+                                SHOP = []
                             obj[0].change_action('idle')
                             buttom_active = False
-                        
                     obj[0].load_animation(display, obj[0].status, scroll)
 
                 # Items ------------------------------------------------------------------------------------------------------------------ #
@@ -512,12 +529,44 @@ def game(map_name):
                     #pygame.draw.rect(display, [255,0,0], [colli_rect.x - scroll[0], colli_rect.y - scroll[1], colli_rect.width, colli_rect.height], 1)
                    # pygame.draw.rect(display, [255,0,0], [obj_rect.x - scroll[0], obj_rect.y - scroll[1], obj_rect.width, obj_rect.height], 1)
                     if colli_rect.colliderect(obj_rect):
-                        if obj[0].ID not in INVENTORY:
-                            INVENTORY[obj[0].ID] = 1
-                            obj[0].check = 1
+                        if str(level)[-2:] != '.5':
+                            if obj[0].ID not in INVENTORY:
+                                INVENTORY[obj[0].ID] = 1
+                                obj[0].check = 1
+                            else:
+                                INVENTORY[obj[0].ID] += 1
+                                obj[0].check = 1
                         else:
-                            INVENTORY[obj[0].ID] += 1
-                            obj[0].check = 1
+                            if obj[0].ID == 'health_potion':
+                                if coin - health_price >= 0:
+                                    coin -= health_price
+                                    SHOP.append([obj[0], 'idle'])
+                                    if obj[0].ID not in INVENTORY:
+                                        INVENTORY[obj[0].ID] = 1
+                                        obj[0].check = 1
+                                    else:
+                                        INVENTORY[obj[0].ID] += 1
+                                        obj[0].check = 1
+                            if obj[0].ID == 'apple_item':
+                                if coin - apple_price >= 0:
+                                    coin -= apple_price
+                                    SHOP.append([obj[0], 'idle'])
+                                    if obj[0].ID not in INVENTORY:
+                                        INVENTORY[obj[0].ID] = 1
+                                        obj[0].check = 1
+                                    else:
+                                        INVENTORY[obj[0].ID] += 1
+                                        obj[0].check = 1
+                            if obj[0].ID == 'meat_item':
+                                if coin - meat_price >= 0:
+                                    coin -= meat_price
+                                    SHOP.append([obj[0], 'idle'])
+                                    if obj[0].ID not in INVENTORY:
+                                        INVENTORY[obj[0].ID] = 1
+                                        obj[0].check = 1
+                                    else:
+                                        INVENTORY[obj[0].ID] += 1
+                                        obj[0].check = 1
                     obj[0].load_animation(display, obj[0].status, scroll)
 
                 # Lever ------------------------------------------------------------------------------------------------------------------ #
@@ -630,17 +679,17 @@ def game(map_name):
                             obj[0].check = 4
                             num = random.randint(1,100)
                             coin += random.randint(5, 15)
-                            if num <= 5:
-                                if 'antidote_potion' not in INVENTORY:
-                                    INVENTORY['antidote_potion'] = 1
-                                else:
-                                    INVENTORY['antidote_potion'] += 1
-                            elif num <= 15:
+                            # if num <= 5:
+                                # if 'antidote_potion' not in INVENTORY:
+                                    # INVENTORY['antidote_potion'] = 1
+                                # else:
+                                    # INVENTORY['antidote_potion'] += 1
+                            if num <= 10:
                                 if 'health_potion' not in INVENTORY:
                                     INVENTORY['health_potion'] = 1
                                 else:
                                     INVENTORY['health_potion'] += 1
-                            elif num <= 35:
+                            elif num <= 40:
                                 if 'meat_item' not in INVENTORY:
                                     INVENTORY['meat_item'] = 1
                                 else:
@@ -670,12 +719,12 @@ def game(map_name):
                             if obj[0].check == 0:
                                 obj[0].check = 1
                                 num = random.randint(1,100)
-                                if num <= 3:
-                                    if 'antidote_potion' not in INVENTORY:
-                                        INVENTORY['antidote_potion'] = 1
-                                    else:
-                                        INVENTORY['antidote_potion'] += 1
-                                elif num <= 10:
+                                # if num <= 3:
+                                    # if 'antidote_potion' not in INVENTORY:
+                                        # INVENTORY['antidote_potion'] = 1
+                                    # else:
+                                        # INVENTORY['antidote_potion'] += 1
+                                if num <= 5:
                                     if 'health_potion' not in INVENTORY:
                                         INVENTORY['health_potion'] = 1
                                     else:
@@ -730,7 +779,7 @@ def game(map_name):
                     if player.rect.colliderect(trap_suspended_rect):
                         hit_player = True
                         hit_sparkle = True
-                    pygame.draw.rect(display, [0,255,0],[trap_suspended_rect.x - scroll[0], trap_suspended_rect.y - scroll[1], trap_suspended_rect.width, trap_suspended_rect.height], 1)
+                    #pygame.draw.rect(display, [0,255,0],[trap_suspended_rect.x - scroll[0], trap_suspended_rect.y - scroll[1], trap_suspended_rect.width, trap_suspended_rect.height], 1)
 
                     # pass
 
@@ -768,8 +817,20 @@ def game(map_name):
                 elif obj[0].ID == 'door':
                     obj[0].load_animation(display, obj[0].status, scroll)
                     if player.rect.x > obj_rect.x and player.rect.colliderect(obj_rect):
-                        level += 1
+                        if level != 0 and level != 5:
+                            level += 0.5
+                        else:
+                            level += 1
                         return True
+                
+                # tiki_torch_props ------------------------------------------------------------------------------------------------------------------ #
+                elif obj[0].ID == 'tiki_torch_props':
+                    obj[0].load_animation(display, obj[1], scroll)
+                    loc = [obj_rect.x + 4.5, obj_rect.y + 10]
+                    if obj[0].check == 0:
+                        PARTICLES.append([e.particle(loc, 5 , [-1, -1],  10  , [2, 3, 0.1], 1  , [[185, 214, 78], [255, 0, 0]]), obj_rect])
+                        obj[0].check = 1
+                    
                 # Another stuff ------------------------------------------------------------------------------------------------------------------ #
                 else:
                     obj[0].load_animation(display, obj[1], scroll)
@@ -880,29 +941,58 @@ def game(map_name):
             #pygame.draw.rect(display, [255,255,0], [strange_door_rect.x - scroll[0], strange_door_rect.y - scroll[1], strange_door_rect.width, strange_door_rect.height], 2)
             #pygame.draw.rect(display, [255,0,0], [obj_rect.x - scroll[0], obj_rect.y - scroll[1], obj_rect.width, obj_rect.height], 1)
         get = True
+
         # Coin system ------------------------------------------------------------------------------------------------------------------ #
-        for coin_o in COIN:
-            if player.attack:
-                if attack_rect.colliderect(coin_o[0].get_rect(coin_o[1])):
+        # Add coin object ------------------------------------------------------------------------------------------------------------------ #
+        for coin_ in COINS:
+            coin_rect = coin_[2]
+            if coin_rect.colliderect(display_render):
+                coin_obj = e.object(coin_[0][0], coin_[0][1])
+                if COIN == {}:
+                    COIN[COINS.index(coin_)] = [coin_obj, coin_[1]]
+                else:
+                    if COIN[COINS.index(coin_)] == 0:
+                        COIN[COINS.index(coin_)] = [coin_obj, coin_[1]]
+            else:
+                if COINS.index(coin_) not in COIN:
+                    COIN[COINS.index(coin_)] = 0
+                
+        for coin_ in COINS:
+            coin_rect = coin_[2]
+            if COIN[COINS.index(coin_)] != 0 and COIN[COINS.index(coin_)] != 1:
+                coin_o = COIN[COINS.index(coin_)]
+                if player.attack:
+                    if attack_rect.colliderect(coin_o[0].get_rect(coin_o[1])):
+                        coin_o[0].change_action('pickup')
+                elif player.rect.colliderect(coin_o[0].get_rect(coin_o[1])):
                     coin_o[0].change_action('pickup')
-            elif player.rect.colliderect(coin_o[0].get_rect(coin_o[1])):
-                coin_o[0].change_action('pickup')
-            if display_render.colliderect(coin_o[0].get_rect(coin_o[1])):
                 if coin_o[0].status == 'idle':
                     coin_o[0].load_animation(display, 'idle', scroll)
                 else:
                     if not coin_o[0].one_time('pickup', [0, -8]):
                         if coin_o[0].check == 0:
                             coin_wav.play()
-                            coin_o[0].check += 1
+                            coin_o[0].check = 1
+                            coin += 1
                         coin_o[0].load_animation(display, coin_o[0].status, scroll)
                     else:
-                        coin_o[0].check = 0
-                        COIN.remove(coin_o)
-                        coin += 1
-            e.text_draw(HUD, str(coin), 2, [36, 17])
+                        coin_o[0].check = 2
+            
+        for coin_ in COINS:
+            coin_rect = coin_[2]
+            if COIN[COINS.index(coin_)] != 0 and COIN[COINS.index(coin_)] != 1:
+                coin_o = COIN[COINS.index(coin_)]
+                if coin_o[0].check == 2:
+                    COIN[COINS.index(coin_)] = 1
 
+        # for data in COIN:
+            # if data[2] == 0:
+                # COIN.remove(data)
+
+        
         e.text_draw(HUD, str(coin), 2, [36, 17])
+        
+        # for coin_o in COIN:
         # Entity system ------------------------------------------------------------------------------------------------------------------ #
         for entity in ENTITY:
             if entity.ID == 'bomber_goblin':
@@ -1013,7 +1103,7 @@ def game(map_name):
                         if entity.ID != 'bomber_goblin':
 
                             # Attack Player ------------------------------------------------------------------------------------------------------------------ #
-                            if player.check == 0:
+                            if player.check == 0 and str(level)[-2:] != '.5':
                                 if player.rect.colliderect(attack_area) and entity.attack_timer > 15 and not flash and entity.ID != 'worm':
                                     entity.attack = True
                                     entity.attack_timer = 0
@@ -1034,7 +1124,7 @@ def game(map_name):
                             if not player.rect.colliderect(attack_area) or player.check != 0:
 
                                 # Move can fall ------------------------------------------------------------------------------------------------------------------ #
-                                if not entity.check_fall(tile_rects):#display, scroll):
+                                if not entity.check_fall(tile_rects)  and str(level)[-2:] != '.5':#display, scroll):
                                     if player.x < entity.x:
                                         entity.movement[0] = -1
                                         entity.flip = True
@@ -1094,11 +1184,12 @@ def game(map_name):
                                     entity.flip = False
 
 
-                entity.move(entity.movement, tile_rects)
+                if str(level)[-2:] != '.5':
+                    entity.move(entity.movement, tile_rects)
                # pygame.draw.rect(display, [255,0,255], [player.x - scroll[0], player.y - scroll[1], 16, 16])
 
                 # Entity move ------------------------------------------------------------------------------------------------------------------ #
-                if not player.attack:
+                if not player.attack and str(level)[-2:] != '.5':
                     if not entity.attack:
                         if entity.ID != 'bomber_goblin':
                             if entity.movement[0] > 0:
@@ -1116,17 +1207,18 @@ def game(map_name):
                         else:
                             entity.change_action('idle')
                 elif player.attack and  (attack_rect.colliderect(entity.rect)  or player.rect.colliderect(entity.rect)):
-                    if entity.one_time('hit'):
-                        player.attack = False
-                        entity.attack = False
-                    if hit_sparkle:
-                        entity.health -= 20
-                        if not player.flip:
-                            entity.move([ 10, 0], tile_rects)
-                        else:
-                            entity.move([ -10, 0], tile_rects)
-                        EFFECT.append([e.object('herochar_hit_sparkle', [entity.rect.x, entity.rect.y]), 8])
-                        hit_sparkle = False
+                    if str(level)[-2:] != '.5':
+                        if entity.one_time('hit'):
+                            player.attack = False
+                            entity.attack = False
+                        if hit_sparkle:
+                            entity.health -= 20
+                            if not player.flip:
+                                entity.move([ 10, 0], tile_rects)
+                            else:
+                                entity.move([ -10, 0], tile_rects)
+                            EFFECT.append([e.object('herochar_hit_sparkle', [entity.rect.x, entity.rect.y]), 8])
+                            hit_sparkle = False
 
             # Player HIT ------------------------------------------------------------------------------------------------------------------ #
             if player.check != 0:
@@ -1161,7 +1253,9 @@ def game(map_name):
                     hit_sparkle_bomb = False
 
             # Entity load animation ------------------------------------------------------------------------------------------------------------------ #
-            entity.load_animation(display, entity.status, scroll)
+            if entity.rect.colliderect(display_render):
+                entity.load_animation(display, entity.status, scroll)
+            
             if entity.health <= 0:
                 entity.life -= 1
 
@@ -1199,6 +1293,14 @@ def game(map_name):
             player.attack = False
 
         flash = False
+        
+        # Particle render ------------------------------------------------------------------------------------------------------------------ #
+        for particle in PARTICLES:
+            if particle[1].colliderect(display_render):
+                #print(PARTICLES.index(particle))
+                particle[0].blend(display, scroll)
+                pass
+
 
         # Inventory ------------------------------------------------------------------------------------------------------------------ #
         n = 0
@@ -1276,6 +1378,7 @@ def game(map_name):
                 if event.key == K_LEFT:
                     moving_left = False
         
+        # Text ------------------------------------------------------------------------------------------------------------------ #
         if level == 0:
             e.text_draw(display, 'Press arrow keys to move', 2, [- 40, 9920], scroll, True, display_render)
             e.text_draw(display, 'Press space to attack', 2, [- 40, 9930], scroll, True, display_render)
@@ -1299,8 +1402,12 @@ def game(map_name):
             win_rect = e.text_draw(screen, 'THANK FOR PLAYING', 4, [0, 0], scroll, False)
             e.text_draw(display, 'THANK FOR PLAYING', 4, [- 40, 10048 + 50], scroll)
         
-
-        
+        if str(level)[-2:] == '.5':
+            e.text_draw(display, 'What do you want to buy ?', 2, [-50, 10020], scroll, True, display_render)
+            e.text_draw(display, str(health_price), 2, [0 - 4 * (len(str(health_price)) - 2), 10040], scroll, True, display_render)
+            e.text_draw(display, str(apple_price), 2, [32 - 4 * (len(str(apple_price)) - 2), 10040], scroll, True, display_render)
+            e.text_draw(display, str(meat_price), 2, [64 - 4 * (len(str(meat_price)) - 2), 10040], scroll, True, display_render)
+            e.text_draw(display, 'Press button to refesh items', 2, [-60, 10110], scroll, True, display_render)
         
         surf = pygame.transform.scale(display, WINDOWN_SIZE)
         screen.blit(surf, [0, 0])
@@ -1385,15 +1492,16 @@ def game(map_name):
         fr = clock.get_fps()
         e.text_draw(screen, str(int(fr)), 4, [0, 0])
         
-        for entity in ENTITY:
-            # Entity health bar ------------------------------------------------------------------------------------------------------------------ #
-            health_bar = pygame.image.load('data/hud/health_bar.png')
-            health_sur = pygame.Surface([health_bar.get_width(), health_bar.get_height()], pygame.SRCALPHA)
-            health_sur.blit(health_bar, [0, 0])
-            health_bar_rect = pygame.Rect([(entity.x - 5 - scroll[0] + 1) * SCALE + 14, (entity.y - 10 - scroll[1] + 1) * SCALE + 8, (health_sur.get_width() / 2 - 3) * (entity.health / 100) * 2, (health_bar.get_height() / 2 + 3)])
-            pygame.draw.rect(screen, [208, 70, 72], health_bar_rect)
-            health_sur = pygame.transform.scale(health_sur, [48 + int((WINDOWN_SIZE[0] / (display.get_width() * 3) - 1) * 50), 16])
-            screen.blit(health_sur, [(entity.x*(WINDOWN_SIZE[0] / (display.get_width() * 3)) - 5 - scroll[0]) * SCALE + 14 , (entity.y - 10 - scroll[1]) * SCALE + 8])
+        if str(level)[-2:] != '.5':
+            for entity in ENTITY:
+                # Entity health bar ------------------------------------------------------------------------------------------------------------------ #
+                health_bar = pygame.image.load('data/hud/health_bar.png')
+                health_sur = pygame.Surface([health_bar.get_width(), health_bar.get_height()], pygame.SRCALPHA)
+                health_sur.blit(health_bar, [0, 0])
+                health_bar_rect = pygame.Rect([(entity.x - 5 - scroll[0] + 1) * SCALE + 14, (entity.y - 10 - scroll[1] + 1) * SCALE + 8, (health_sur.get_width() / 2 - 3) * (entity.health / 100) * 2, (health_bar.get_height() / 2 + 3)])
+                pygame.draw.rect(screen, [208, 70, 72], health_bar_rect)
+                health_sur = pygame.transform.scale(health_sur, [48 + int((WINDOWN_SIZE[0] / (display.get_width() * 3) - 1) * 50), 16])
+                screen.blit(health_sur, [(entity.x*(WINDOWN_SIZE[0] / (display.get_width() * 3)) - 5 - scroll[0]) * SCALE + 14 , (entity.y - 10 - scroll[1]) * SCALE + 8])
 
   #      print((WINDOWN_SIZE[0] / (display.get_width() * 3) - 1))
  #       value_item = 6
@@ -1407,7 +1515,6 @@ def game(map_name):
                 if obj[0].check == 1:
                     OBJECT.remove(obj)
         
-
         # Update game ------------------------------------------------------------------------------------------------------------------ #
         pygame.display.update()
         clock.tick(e.FPS)
@@ -1467,48 +1574,52 @@ def main_menu():
             if click:
                 click_wav.play()
                 e.UI(start_buttom_b_c, screen, [1.5, 1.5], [WINDOWN_SIZE[0]/2 - start_button.width/2, WINDOWN_SIZE[1]/2 - start_button.height/2])
-                if level == 0:
-                    if not game('tutorial'):
-                        if end():
-                            health = 100
-                            life = 3
-                if level == 1:
-                    INVENTORY = {}
-                    health = 100
-                    life = 3
-                    if not game('level_1'):
-                        if end():
-                            level = 1
-                            health = 100
-                            life = 3
-                if level == 2:
-                    if not game('level_2'):
-                        if end():
-                            level = 1
-                            health = 100
-                            life = 3
-                if level == 3:
-                    if not game('level_3'):
-                        if end():
-                            level = 1
-                            health = 100
-                            life = 3
-                if level == 4:
-                    if not game('level_4'):
-                        if end():
-                            health = 100
-                            life = 3
-                            level = 1
-                if level == 5:
-                    if not game('level_5'):
-                        if end():
-                            health = 100
-                            life = 3
-                            level = 1
-                if level == 6:
-                    life = 3
-                    health = 100
-                    game('win')
+                while True:
+                    if 5 > level > 1 and str(level)[-2:] == '.5':
+                        game('shop')
+                    
+                    if level == 0:
+                        if not game('tutorial'):
+                            if end():
+                                health = 100
+                                life = 3
+                    if level == 1:
+                        INVENTORY = {}
+                        health = 100
+                        life = 3
+                        if not game('level_1'):
+                            if end():
+                                level = 1
+                                health = 100
+                                life = 3
+                    if level == 2:
+                        if not game('level_2'):
+                            if end():
+                                level = 1
+                                health = 100
+                                life = 3
+                    if level == 3:
+                        if not game('level_3'):
+                            if end():
+                                level = 1
+                                health = 100
+                                life = 3
+                    if level == 4:
+                        if not game('level_4'):
+                            if end():
+                                health = 100
+                                life = 3
+                                level = 1
+                    if level == 5:
+                        if not game('level_5'):
+                            if end():
+                                health = 100
+                                life = 3
+                                level = 1
+                    if level == 6:
+                        life = 3
+                        health = 100
+                        game('win')
             else:
                 e.UI(start_buttom_b, screen, [1.5, 1.5], [WINDOWN_SIZE[0]/2 - start_button.width/2, WINDOWN_SIZE[1]/2 - start_button.height/2])
                 
@@ -1620,6 +1731,10 @@ def end():
         
         pygame.display.update()
 
-#game('trap')#
-main_menu()
+#pygame.mixer.music.stop()
+# partice()
+level = 4
+game('level_4')#
+#main_menu()
 #end()
+#shop()

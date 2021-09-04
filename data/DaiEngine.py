@@ -52,10 +52,11 @@ def load_map(name):
     game_map = json.load(f)
     return game_map
 
-def map_render(surface, scroll):
+def map_render(surface, scroll, display_render):
     global tile_rects
     
     tile_rects = [] # Must clear else lag :<
+    #temp = []
     for a in game_map:
         if a == 'tile':
             for b in game_map[a]:
@@ -68,11 +69,10 @@ def map_render(surface, scroll):
                     data_width = database[ID_im][0].get_width()
                     data_height = database[ID_im][0].get_height()
                     block_rect = pygame.Rect(pos_x, pos_y, data_width, data_height)
-                    surface.blit(img, [pos_x - scroll[0], pos_y - scroll[1]])
+                    if block_rect.colliderect(display_render):
+                        surface.blit(img, [pos_x - scroll[0], pos_y - scroll[1]])
                     if ID_im not in [1,2,3,23,37,50,55,56,57,58]:
-                        #pygame.draw.rect(surface, [255,0,0], [pos_x - scroll[0], pos_y - scroll[1], block_rect.width, block_rect.height], 1)
                         tile_rects.append(block_rect)
-
 # Create map ------------------------------------------------------------------------------------------------------------------ #
 tile_index = {}
 def load_tiles():
@@ -667,11 +667,68 @@ class HUD(object):
             self.offset = [0, 0]
             self.frame = 0
             return True
+#[loc, random_ver, random_time or radius]
+class particle(object):
+    global par_tile
+    
+    def __init__(self, loc, ver_x, ver_y, space, radius, many, color):
+        self.ver_x = ver_x
+        self.ver_y = ver_y
+        self.space = space
+        self.radius = radius
+        self.many = many
+        self.color = color
+        self.gravity = False
+        self.TILE_SIZE = 16
+        self.PARTICLES = []
+        self.loc = loc
+    
+    
+    def blend(self, surface, scroll):
+        CHUNK_SIZE = 8
+        
+        loc_par = self.loc.copy() # Must do else var will point to one location in memory
+        def blend_surf(radius, color):
+            surf = pygame.Surface([radius * 4, radius * 4])
+            pygame.draw.circle(surf, color, [radius * 2, radius * 2], radius * 2)
+            surf.set_colorkey([0, 0, 0])
+            return surf
+        
+        for _ in range(self.many):
+            self.PARTICLES.append([loc_par, [random.randint(0, self.ver_x) / self.space - self.ver_x/self.space/2, random.randint(self.ver_y[0], self.ver_y[1])] , random.randint(self.radius[0], self.radius[1])])
+        
+        for partice in self.PARTICLES:
+            # for tile in game_map['tile']:
+                # for data in game_map['tile'][tile]:
+                    # par_tile.append(str(int(data[0][0] / self.TILE_SIZE)) + ';' + str(int(data[0][1] / self.TILE_SIZE)))
+                
+           # print(par_tile)
+            partice[0][0] += partice[1][0]
+            # loc_par = str(int(partice[0][0] / self.TILE_SIZE)) + ';' + str(int(partice[0][1] / self.TILE_SIZE))
+            # if loc_par in par_tile:
+                # partice[1][0] *= -0.8
+                # partice[0][0] += partice[1][0] * 2
 
-
+            partice[0][1] += partice[1][1]
+            # loc_par = str(int(partice[0][0] / self.TILE_SIZE)) + ';' + str(int(partice[0][1] / self.TILE_SIZE))
+            # if loc_par in par_tile:
+                # partice[1][1] *= -0.4
+                # partice[0][1] += partice[1][1] * 2
+            
+            partice[2] -= self.radius[2]
+            if self.gravity:
+                partice[1][1] += 0.2
+            if partice[2] > 0:
+                pygame.draw.circle(surface, self.color[0], [partice[0][0] - scroll[0], partice[0][1] - scroll[1]], partice[2])
+                surface.blit(blend_surf(partice[2], self.color[1]), [partice[0][0] - partice[2] * 2 - scroll[0], partice[0][1] - partice[2] * 2 - scroll[1]], special_flags = BLEND_RGB_ADD )
+        for partice in self.PARTICLES:
+            if partice[2] <= 0:
+                self.PARTICLES.remove(partice)
+        
+       # print(len(self.PARTICLES))
 # obj = object('coin', [0, 0], [0, 0])
 # obj.create_database()
 # print(obj_database)
-anim = animation()
-anim.create_database()
+# anim = animation()
+# anim.create_database()
 # print(len(animation_database['herochar_idle']))
