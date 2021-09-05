@@ -1636,6 +1636,4 @@ def end():
         
         pygame.display.update()
 
-level = 5
-game('level_5')
-#main_menu()
+main_menu()
