@@ -56,7 +56,6 @@ def map_render(surface, scroll, display_render):
     global tile_rects
     
     tile_rects = [] # Must clear else lag :<
-    #temp = []
     for a in game_map:
         if a == 'tile':
             for b in game_map[a]:
@@ -312,8 +311,6 @@ class object(object):
         self.movement = [0, 0]
         self.y_momentum = 0
         self.check = 0
-        #self.rect = self.get_rect(self.status)
-        pass
     
     def DDDH(self, w, A, width, height, offset = [0, 0]):
         self.w_x = w[0]
@@ -327,7 +324,7 @@ class object(object):
         hit_box = pygame.Rect([self.x + offset_x + offset[0], self.y + offset_y + offset[1], width, height])
         self.time += 1
     
-    def move(self, movement):#, surface, scroll):
+    def move(self, movement):
         self.collision = {'top': False, 'bottom': False, 'right': False, 'left': False}
         self.rect =self.get_rect(self.status)
         
@@ -337,10 +334,8 @@ class object(object):
         for tile in hit_list:
             if movement[0] > 0:
                 self.collision['right'] = True
-                #pygame.draw.rect(surface, [255,0,0], [tile.x - scroll[0], tile.y - scroll[1], tile.width, tile.height])
                 self.rect.right = tile.left
             elif movement[0] < 0:
-                #pygame.draw.rect(surface, [255,0,0], [tile.x - scroll[0], tile.y - scroll[1], tile.width, tile.height])
                 self.collision['left'] = True
                 self.rect.left = tile.right
         self.x = self.rect.x
@@ -350,11 +345,9 @@ class object(object):
         hit_list = collide_test(self.rect, tile_rects)
         for tile in hit_list:
             if movement[1] >= 0:
-                #pygame.draw.rect(surface, [255,0,0], [tile.x - scroll[0], tile.y - scroll[1], tile.width, tile.height])
                 self.collision['bottom'] = True
                 self.rect.bottom = tile.top
             elif movement[1] < 0:
-                #pygame.draw.rect(surface, [255,0,0], [tile.x - scroll[0], tile.y - scroll[1], tile.width, tile.height])
                 self.collision['top'] = True
                 self.rect.top = tile.bottom
         self.y = self.rect.y
@@ -416,7 +409,6 @@ class object(object):
             obj_img = pygame.image.load(obj_path + '/' + ID + '.png')
             if draw:
                 surface.blit(obj_img, [self.x - scroll[0], self.y - scroll[1]])
-        #print(ID, self.frame)
         self.frame += 1
         
     def get_rect(self, status):
@@ -474,23 +466,6 @@ class entity(object):
         area_rect = pygame.Rect([vis_x, vis_y, vis_width, vis_height])
         return area_rect
     
-    # def attack_area(self, width, height, double_height = False):
-        # vis_x = self.x - width * IMG_SIZE[0]
-        # vis_y = self.y - IMG_SIZE[1] * height
-        # vis_width = width * IMG_SIZE[0] * 2 + self.img.get_width()
-        # if double_height:
-            # vis_height = IMG_SIZE[1] * height * 2 + self.img.get_height()
-        # else:
-            # vis_height = IMG_SIZE[1] * height + self.img.get_height()
-        # vision_rect = pygame.Rect([vis_x, vis_y, vis_width, vis_height])
-        # return vision_rect
-        # atk_x = self.x - area
-        # atk_y = self.y
-        # atk_width = area * 2 + IMG_SIZE[0]
-        # atk_height = IMG_SIZE[1]
-        # attack_area = pygame.Rect([atk_x, atk_y, atk_width, atk_height])
-        # return attack_area
-    
     def change_action(self, status):
         if self.status != status:
             self.status = status
@@ -532,7 +507,7 @@ class entity(object):
         self.frame += 1
         self.attack_timer += 1
     
-    def check_fall(self, tile_rect):#, surface, scroll):
+    def check_fall(self, tile_rect):
         fall = True
         if not self.flip:
             check_x = self.rect.x + self.img.get_width()
@@ -542,10 +517,8 @@ class entity(object):
             check_y = self.rect.y + self.img.get_height()
         
         check_rect = pygame.Rect(check_x, check_y, self.img.get_width(), self.img.get_height())
-       # pygame.draw.rect(surface, [255,0,255], [check_x - scroll[0], check_y - scroll[1], self.img.get_width(), self.img.get_height()])
         for tile_check in tile_rect:
             if check_rect.colliderect(tile_check):
-                #pygame.draw.rect(surface, [255,255,0], [tile_check.x - scroll[0], tile_check.y - scroll[1], tile_check.width, tile_check.height], 2)
                 fall = False
         if fall:
             return True
@@ -667,7 +640,7 @@ class HUD(object):
             self.offset = [0, 0]
             self.frame = 0
             return True
-#[loc, random_ver, random_time or radius]
+
 class particle(object):
     global par_tile
     
@@ -698,23 +671,8 @@ class particle(object):
             self.PARTICLES.append([loc_par, [random.randint(0, self.ver_x) / self.space - self.ver_x/self.space/2, random.randint(self.ver_y[0], self.ver_y[1])] , random.randint(self.radius[0], self.radius[1])])
         
         for partice in self.PARTICLES:
-            # for tile in game_map['tile']:
-                # for data in game_map['tile'][tile]:
-                    # par_tile.append(str(int(data[0][0] / self.TILE_SIZE)) + ';' + str(int(data[0][1] / self.TILE_SIZE)))
-                
-           # print(par_tile)
             partice[0][0] += partice[1][0]
-            # loc_par = str(int(partice[0][0] / self.TILE_SIZE)) + ';' + str(int(partice[0][1] / self.TILE_SIZE))
-            # if loc_par in par_tile:
-                # partice[1][0] *= -0.8
-                # partice[0][0] += partice[1][0] * 2
-
             partice[0][1] += partice[1][1]
-            # loc_par = str(int(partice[0][0] / self.TILE_SIZE)) + ';' + str(int(partice[0][1] / self.TILE_SIZE))
-            # if loc_par in par_tile:
-                # partice[1][1] *= -0.4
-                # partice[0][1] += partice[1][1] * 2
-            
             partice[2] -= self.radius[2]
             if self.gravity:
                 partice[1][1] += 0.2
@@ -725,10 +683,3 @@ class particle(object):
             if partice[2] <= 0:
                 self.PARTICLES.remove(partice)
         
-       # print(len(self.PARTICLES))
-# obj = object('coin', [0, 0], [0, 0])
-# obj.create_database()
-# print(obj_database)
-# anim = animation()
-# anim.create_database()
-# print(len(animation_database['herochar_idle']))
