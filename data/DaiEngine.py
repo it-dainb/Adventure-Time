@@ -178,6 +178,7 @@ def text_draw(surface, text, size, pos, scroll = [0,0],draw = True, camera = 0, 
     else:
         text_sur = pygame.Surface([text_size[0], text_size[1]])
     for char in text:
+        char = char.casefold()
         if num == text[len(text) - 1]:
             text_size[0] -= spacing * size
             spacing = 0
